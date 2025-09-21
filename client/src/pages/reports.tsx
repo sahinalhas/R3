@@ -62,6 +62,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { formatDate } from "@/lib/utils";
+import * as XLSX from "xlsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // Renk paletleri
 const COLORS = ['#845ef7', '#ff4081', '#22c55e', '#ff9800', '#f43f5e'];
@@ -174,8 +183,275 @@ export default function ReportsPage() {
     setTimeout(() => setIsRefreshing(false), 500);
   };
   
-  // Raporu PDF/Excel olarak indirme fonksiyonu
-  const downloadReport = () => {
+  // Raporu Excel olarak indirme fonksiyonu
+  const downloadExcelReport = () => {
+    const date = new Date();
+    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
+    
+    // Yeni çalışma kitabı oluştur
+    const workbook = XLSX.utils.book_new();
+    
+    // 1. Genel İstatistikler Sayfası
+    const statsData = [
+      ["Rehberlik Servisi Genel İstatistikleri", "", "", ""],
+      ["Rapor Tarihi:", new Date().toLocaleString("tr-TR"), "", ""],
+      ["", "", "", ""],
+      ["İstatistik", "Değer", "", ""],
+      ["Toplam Öğrenci Sayısı", stats?.studentCount || 0, "", ""],
+      ["Bugünkü Randevular", stats?.todayAppointments || 0, "", ""],
+      ["Haftalık Randevular", stats?.weeklyAppointments || 0, "", ""],
+      ["Bekleyen Talepler", stats?.pendingRequests || 0, "", ""],
+      ["Toplam Randevu Sayısı", appointments?.length || 0, "", ""]
+    ];
+    const statsWorksheet = XLSX.utils.aoa_to_sheet(statsData);
+    XLSX.utils.book_append_sheet(workbook, statsWorksheet, "Genel İstatistikler");
+    
+    // 2. Öğrenci Listesi Sayfası
+    if (students && students.length > 0) {
+      const studentData = [
+        ["Öğrenci Listesi", "", "", "", "", "", "", ""],
+        ["Adı", "Soyadı", "Öğrenci No", "Sınıf", "Doğum Tarihi", "Cinsiyet", "Veli Adı", "Telefon"],
+        ...students.map(student => [
+          student.firstName,
+          student.lastName,
+          student.studentNumber,
+          student.class,
+          student.birthDate,
+          student.gender,
+          student.parentName,
+          student.phone
+        ])
+      ];
+      const studentWorksheet = XLSX.utils.aoa_to_sheet(studentData);
+      XLSX.utils.book_append_sheet(workbook, studentWorksheet, "Öğrenciler");
+    }
+    
+    // 3. Randevu Listesi Sayfası
+    if (appointments && appointments.length > 0) {
+      const appointmentData = [
+        ["Randevu Listesi", "", "", "", "", ""],
+        ["Öğrenci ID", "Rehber ID", "Tarih", "Saat", "Durum", "Konu"],
+        ...appointments.map(appointment => [
+          appointment.studentId,
+          appointment.counselorId,
+          appointment.date,
+          appointment.time,
+          appointment.status,
+          appointment.subject
+        ])
+      ];
+      const appointmentWorksheet = XLSX.utils.aoa_to_sheet(appointmentData);
+      XLSX.utils.book_append_sheet(workbook, appointmentWorksheet, "Randevular");
+    }
+    
+    // 4. Sınıf Dağılımı Sayfası
+    const classDistData = prepareClassDistributionData();
+    if (classDistData.length > 0) {
+      const classData = [
+        ["Sınıf Dağılımı", ""],
+        ["Sınıf", "Öğrenci Sayısı"],
+        ...classDistData.map(item => [item.name, item.value])
+      ];
+      const classWorksheet = XLSX.utils.aoa_to_sheet(classData);
+      XLSX.utils.book_append_sheet(workbook, classWorksheet, "Sınıf Dağılımı");
+    }
+    
+    // 5. Son Aktiviteler Sayfası
+    if (activities && activities.length > 0) {
+      const activityData = [
+        ["Son Aktiviteler", "", ""],
+        ["Tür", "Mesaj", "Tarih"],
+        ...activities.slice(0, 20).map(activity => [
+          activity.type,
+          activity.message.replace(/<[^>]*>/g, ''), // HTML etiketlerini temizle
+          new Date(activity.createdAt).toLocaleString("tr-TR")
+        ])
+      ];
+      const activityWorksheet = XLSX.utils.aoa_to_sheet(activityData);
+      XLSX.utils.book_append_sheet(workbook, activityWorksheet, "Aktiviteler");
+    }
+    
+    // Excel dosyasını indirme
+    const filename = `rehberlik_raporu_${dateStr}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+  };
+  
+  // Raporu PDF olarak indirme fonksiyonu
+  const downloadPDFReport = () => {
+    try {
+      const doc = new jsPDF();
+      const date = new Date();
+      const dateStr = date.toLocaleDateString("tr-TR");
+      const timeStr = date.toLocaleTimeString("tr-TR");
+      
+      // Başlık
+      doc.setFontSize(20);
+      doc.text("Rehberlik Servisi Raporu", 20, 20);
+      
+      doc.setFontSize(12);
+      doc.text(`Rapor Tarihi: ${dateStr} ${timeStr}`, 20, 30);
+      
+      let yPosition = 50;
+      
+      // Genel İstatistikler
+      doc.setFontSize(16);
+      doc.text("Genel İstatistikler", 20, yPosition);
+      yPosition += 10;
+      
+      const statsData = [
+        ["İstatistik", "Değer"],
+        ["Toplam Öğrenci Sayısı", (stats?.studentCount || 0).toString()],
+        ["Bugünkü Randevular", (stats?.todayAppointments || 0).toString()],
+        ["Haftalık Randevular", (stats?.weeklyAppointments || 0).toString()],
+        ["Bekleyen Talepler", (stats?.pendingRequests || 0).toString()],
+        ["Toplam Randevu Sayısı", (appointments?.length || 0).toString()]
+      ];
+      
+      autoTable(doc, {
+        head: [statsData[0]],
+        body: statsData.slice(1),
+        startY: yPosition,
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [133, 94, 247] }
+      });
+      
+      yPosition = (doc as any).lastAutoTable.finalY + 20;
+      
+      // Sınıf Dağılımı
+      const classData = prepareClassDistributionData();
+      if (classData.length > 0 && yPosition < 250) {
+        doc.setFontSize(16);
+        doc.text("Sınıf Dağılımı", 20, yPosition);
+        yPosition += 10;
+        
+        const classTableData = [
+          ["Sınıf", "Öğrenci Sayısı"],
+          ...classData.map(item => [item.name, item.value.toString()])
+        ];
+        
+        autoTable(doc, {
+          head: [classTableData[0]],
+          body: classTableData.slice(1),
+          startY: yPosition,
+          styles: { fontSize: 10 },
+          headStyles: { fillColor: [34, 197, 94] }
+        });
+        
+        yPosition = (doc as any).lastAutoTable.finalY + 20;
+      }
+      
+      // Öğrenci Listesi (İlk 10 öğrenci)
+      if (students && students.length > 0 && yPosition < 200) {
+        doc.setFontSize(16);
+        doc.text("Öğrenci Listesi (İlk 10)", 20, yPosition);
+        yPosition += 10;
+        
+        const studentTableData = [
+          ["Ad Soyad", "Öğrenci No", "Sınıf", "Veli"],
+          ...students.slice(0, 10).map(student => [
+            `${student.firstName} ${student.lastName}`,
+            student.studentNumber,
+            student.class,
+            student.parentName
+          ])
+        ];
+        
+        autoTable(doc, {
+          head: [studentTableData[0]],
+          body: studentTableData.slice(1),
+          startY: yPosition,
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [255, 64, 129] },
+          columnStyles: {
+            0: { cellWidth: 50 },
+            1: { cellWidth: 30 },
+            2: { cellWidth: 25 },
+            3: { cellWidth: 50 }
+          }
+        });
+      }
+      
+      // Yeni sayfa - Randevu listesi
+      if (appointments && appointments.length > 0) {
+        doc.addPage();
+        yPosition = 20;
+        
+        doc.setFontSize(16);
+        doc.text("Randevu Listesi (İlk 15)", 20, yPosition);
+        yPosition += 10;
+        
+        const appointmentTableData = [
+          ["Tarih", "Saat", "Durum", "Konu"],
+          ...appointments.slice(0, 15).map(appointment => [
+            new Date(appointment.date).toLocaleDateString("tr-TR"),
+            appointment.time,
+            appointment.status,
+            appointment.subject.length > 30 ? 
+              appointment.subject.substring(0, 30) + "..." : 
+              appointment.subject
+          ])
+        ];
+        
+        autoTable(doc, {
+          head: [appointmentTableData[0]],
+          body: appointmentTableData.slice(1),
+          startY: yPosition,
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [255, 152, 0] },
+          columnStyles: {
+            0: { cellWidth: 35 },
+            1: { cellWidth: 25 },
+            2: { cellWidth: 30 },
+            3: { cellWidth: 80 }
+          }
+        });
+        
+        yPosition = (doc as any).lastAutoTable.finalY + 20;
+        
+        // Son aktiviteler
+        if (activities && activities.length > 0 && yPosition < 200) {
+          doc.setFontSize(16);
+          doc.text("Son Aktiviteler (İlk 10)", 20, yPosition);
+          yPosition += 10;
+          
+          const activityTableData = [
+            ["Tür", "Mesaj", "Tarih"],
+            ...activities.slice(0, 10).map(activity => [
+              activity.type,
+              activity.message.replace(/<[^>]*>/g, '').length > 40 ? 
+                activity.message.replace(/<[^>]*>/g, '').substring(0, 40) + "..." : 
+                activity.message.replace(/<[^>]*>/g, ''),
+              new Date(activity.createdAt).toLocaleDateString("tr-TR")
+            ])
+          ];
+          
+          autoTable(doc, {
+            head: [activityTableData[0]],
+            body: activityTableData.slice(1),
+            startY: yPosition,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [244, 63, 94] },
+            columnStyles: {
+              0: { cellWidth: 35 },
+              1: { cellWidth: 100 },
+              2: { cellWidth: 35 }
+            }
+          });
+        }
+      }
+      
+      // PDF'i kaydet
+      const filename = `rehberlik_raporu_${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}.pdf`;
+      doc.save(filename);
+      
+    } catch (error) {
+      console.error("PDF oluşturma hatası:", error);
+      alert("PDF raporu oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
+    }
+  };
+  
+  // Raporu JSON olarak indirme fonksiyonu
+  const downloadJSONReport = () => {
     // Raporda bulunacak verileri oluştur
     const reportData = {
       reportName: "Rehberlik Servisi Raporu",
@@ -190,6 +466,8 @@ export default function ReportsPage() {
       appointmentStatus: prepareAppointmentStatusData(),
       monthlyAppointments: prepareMonthlyAppointmentsData(),
       recentActivities: activities?.slice(0, 10) || [],
+      students: students || [],
+      appointments: appointments || []
     };
     
     // JSON'a dönüştür
@@ -308,14 +586,44 @@ export default function ReportsPage() {
                   )}
                   Verileri Yenile
                 </Button>
-                <Button
-                  variant="outline"
-                  className="bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-primary/20 text-primary gap-2"
-                  onClick={downloadReport}
-                >
-                  <Download className="h-4 w-4" />
-                  Raporu İndir
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-primary/20 text-primary gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      Raporu İndir
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuItem onClick={downloadExcelReport} className="gap-2">
+                      <FileBarChart className="h-4 w-4 text-green-600" />
+                      <div className="flex flex-col">
+                        <span>Excel Raporu (.xlsx)</span>
+                        <span className="text-xs text-muted-foreground">Tablo formatında</span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={downloadJSONReport} className="gap-2">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <div className="flex flex-col">
+                        <span>JSON Raporu (.json)</span>
+                        <span className="text-xs text-muted-foreground">Ham veri formatı</span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={downloadPDFReport}
+                      className="gap-2"
+                    >
+                      <ScrollText className="h-4 w-4 text-red-600" />
+                      <div className="flex flex-col">
+                        <span>PDF Raporu (.pdf)</span>
+                        <span className="text-xs text-muted-foreground">Yazdırılabilir format</span>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
