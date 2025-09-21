@@ -51,10 +51,22 @@ const navItems = [
     description: "Rehberlik görüşme kayıtları",
   },
   {
+    label: "Ders Saatleri",
+    icon: Clock,
+    href: "/class-hours",
+    description: "Okul ders saatlerini yönetimi",
+  },
+  {
     label: "Raporlar",
     icon: FileBarChart2,
     href: "/reports",
     description: "Analiz ve raporlama",
+  },
+  {
+    label: "Okul Bilgileri",
+    icon: School,
+    href: "/school-info", 
+    description: "Okul genel bilgileri ve ayarları",
   },
   {
     label: "Ayarlar",

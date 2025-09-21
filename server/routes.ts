@@ -14,7 +14,8 @@ import {
   insertStudyPlanSchema,
   insertSubjectProgressSchema,
   insertStudyPlanSubjectSchema,
-  insertSchoolInfoSchema
+  insertSchoolInfoSchema,
+  insertNotificationSchema
 } from "@shared/schema";
 import { z } from "zod";
 import * as XLSX from "xlsx";
@@ -2344,6 +2345,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       res.json(updatedInfo);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Eksik ya da hatalı bilgi", errors: err.errors });
+      }
+      next(err);
+    }
+  });
+
+  // ===== Bildirimler API Routes =====
+
+  // Kullanıcının bildirimlerini getir
+  app.get("/api/notifications", async (req, res, next) => {
+    try {
+      const userId = (req as any).user?.id; // Auth middleware'den gelen user ID
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const onlyUnread = req.query.unread === 'true';
+      
+      const notifications = await storage.getNotifications(userId, limit, onlyUnread);
+      res.json(notifications);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Bildirimi okundu olarak işaretle
+  app.put("/api/notifications/:id/read", async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = (req as any).user?.id;
+      
+      await storage.markNotificationAsRead(id, userId);
+      res.json({ success: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Tüm bildirimleri okundu olarak işaretle
+  app.put("/api/notifications/mark-all-read", async (req, res, next) => {
+    try {
+      const userId = (req as any).user?.id;
+      
+      await storage.markAllNotificationsAsRead(userId);
+      res.json({ success: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Bildirim oluştur (sistem kullanımı için)
+  app.post("/api/notifications", async (req, res, next) => {
+    try {
+      const validatedData = insertNotificationSchema.parse(req.body);
+      const notification = await storage.createNotification(validatedData);
+      res.status(201).json(notification);
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: "Eksik ya da hatalı bilgi", errors: err.errors });

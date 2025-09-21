@@ -141,4 +141,19 @@ sqlite.exec(`
   );
 `);
 
+// Bildirimler tablosunu oluştur (eğer yoksa)
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'info',
+    is_read INTEGER NOT NULL DEFAULT 0,
+    related_id INTEGER,
+    related_type TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
 export const db = drizzle(sqlite, { schema });

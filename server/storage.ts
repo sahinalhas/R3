@@ -11,7 +11,8 @@ import {
   studyPlans, type StudyPlan, type InsertStudyPlan,
   subjectProgress, type SubjectProgress, type InsertSubjectProgress,
   studyPlanSubjects, type StudyPlanSubject, type InsertStudyPlanSubject,
-  schoolInfo, type SchoolInfo, type InsertSchoolInfo
+  schoolInfo, type SchoolInfo, type InsertSchoolInfo,
+  notifications, type Notification, type InsertNotification
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, like, desc } from "drizzle-orm";
@@ -130,6 +131,12 @@ export interface IStorage {
   // Okul Bilgileri işlemleri
   getSchoolInfo(): Promise<SchoolInfo | undefined>;
   updateSchoolInfo(data: InsertSchoolInfo): Promise<SchoolInfo>;
+  
+  // Bildirimler işlemleri
+  getNotifications(userId?: number, limit?: number, onlyUnread?: boolean): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: number, userId?: number): Promise<boolean>;
+  markAllNotificationsAsRead(userId?: number): Promise<boolean>;
   
   // Session store
   sessionStore: any;
@@ -1122,6 +1129,93 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error(`Okul bilgileri güncellenirken hata: ${error}`);
       throw error;
+    }
+  }
+  
+  // ===== Bildirimler işlemleri =====
+  
+  async getNotifications(userId?: number, limit: number = 50, onlyUnread: boolean = false): Promise<Notification[]> {
+    try {
+      let query = db.select().from(notifications);
+      
+      // Kullanıcı ID filtresi (null=tüm kullanıcılar için)
+      if (userId !== undefined) {
+        query = query.where(eq(notifications.userId, userId)) as any;
+      }
+      
+      // Sadece okunmamış bildirimler filtresi
+      if (onlyUnread) {
+        const conditions = userId !== undefined 
+          ? and(eq(notifications.userId, userId), eq(notifications.isRead, 0))
+          : eq(notifications.isRead, 0);
+        query = query.where(conditions) as any;
+      }
+      
+      // Sıralama ve limit
+      const results = await query.orderBy(desc(notifications.createdAt)).limit(limit);
+      
+      return results;
+    } catch (error) {
+      console.error(`Bildirimler getirilirken hata: ${error}`);
+      return [];
+    }
+  }
+  
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    try {
+      const [newNotification] = await db.insert(notifications)
+        .values({
+          ...notification,
+          createdAt: new Date().toISOString()
+        })
+        .returning();
+      
+      return newNotification;
+    } catch (error) {
+      console.error(`Bildirim oluşturulurken hata: ${error}`);
+      throw error;
+    }
+  }
+  
+  async markNotificationAsRead(id: number, userId?: number): Promise<boolean> {
+    try {
+      let whereCondition = eq(notifications.id, id);
+      
+      // Kullanıcı ID kontrolü ekle
+      if (userId !== undefined) {
+        whereCondition = and(eq(notifications.id, id), eq(notifications.userId, userId)) as any;
+      }
+      
+      const result = await db.update(notifications)
+        .set({ isRead: 1 })
+        .where(whereCondition);
+      
+      return result.changes > 0;
+    } catch (error) {
+      console.error(`Bildirim okundu olarak işaretlenirken hata: ${error}`);
+      return false;
+    }
+  }
+  
+  async markAllNotificationsAsRead(userId?: number): Promise<boolean> {
+    try {
+      let whereCondition;
+      
+      if (userId !== undefined) {
+        whereCondition = eq(notifications.userId, userId);
+      } else {
+        // Tüm bildirimleri okundu olarak işaretle
+        whereCondition = eq(notifications.isRead, 0);
+      }
+      
+      const result = await db.update(notifications)
+        .set({ isRead: 1 })
+        .where(whereCondition);
+      
+      return result.changes > 0;
+    } catch (error) {
+      console.error(`Tüm bildirimler okundu olarak işaretlenirken hata: ${error}`);
+      return false;
     }
   }
 }

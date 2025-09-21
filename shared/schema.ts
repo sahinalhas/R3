@@ -260,3 +260,24 @@ export const insertSchoolInfoSchema = createInsertSchema(schoolInfo).omit({
 
 export type SchoolInfo = typeof schoolInfo.$inferSelect;
 export type InsertSchoolInfo = z.infer<typeof insertSchoolInfoSchema>;
+
+// Bildirimler tablosu
+export const notifications = sqliteTable("notifications", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id"), // Hangi kullanıcıya ait (null=tüm kullanıcılar)
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").default("info").notNull(), // info, success, warning, error
+  isRead: integer("is_read").default(0).notNull(), // 0=okunmamış, 1=okunmuş
+  relatedId: integer("related_id"), // İlgili kayıt ID'si (öğrenci, randevu vs.)
+  relatedType: text("related_type"), // İlgili kayıt tipi (student, appointment vs.)
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
