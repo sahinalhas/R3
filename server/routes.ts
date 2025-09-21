@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth } from "./auth";
+import { setupAuth, requireAuth } from "./auth";
 import { 
   insertStudentSchema, 
   insertAppointmentSchema, 
@@ -2356,13 +2356,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Bildirimler API Routes =====
 
   // Kullanıcının bildirimlerini getir
-  app.get("/api/notifications", async (req, res, next) => {
+  app.get("/api/notifications", requireAuth, async (req, res, next) => {
     try {
       const userId = (req as any).user?.id; // Auth middleware'den gelen user ID
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string) || 20, 100) : 20;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
       const onlyUnread = req.query.unread === 'true';
       
-      const notifications = await storage.getNotifications(userId, limit, onlyUnread);
+      const notifications = await storage.getNotifications(userId, limit, onlyUnread, offset);
       res.json(notifications);
     } catch (err) {
       next(err);
@@ -2370,12 +2371,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bildirimi okundu olarak işaretle
-  app.put("/api/notifications/:id/read", async (req, res, next) => {
+  app.put("/api/notifications/:id/read", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const userId = (req as any).user?.id;
       
-      await storage.markNotificationAsRead(id, userId);
+      const success = await storage.markNotificationAsRead(id, userId);
+      if (!success) {
+        return res.status(404).json({ message: "Bildirim bulunamadı veya erişim izni yok" });
+      }
       res.json({ success: true });
     } catch (err) {
       next(err);
@@ -2383,22 +2387,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tüm bildirimleri okundu olarak işaretle
-  app.put("/api/notifications/mark-all-read", async (req, res, next) => {
+  app.put("/api/notifications/mark-all-read", requireAuth, async (req, res, next) => {
     try {
       const userId = (req as any).user?.id;
       
-      await storage.markAllNotificationsAsRead(userId);
-      res.json({ success: true });
+      const count = await storage.markAllNotificationsAsRead(userId);
+      res.json({ success: count > 0, count });
     } catch (err) {
       next(err);
     }
   });
 
-  // Bildirim oluştur (sistem kullanımı için)
-  app.post("/api/notifications", async (req, res, next) => {
+  // Bildirim oluştur (sadece admin kullanıcılar için)
+  app.post("/api/notifications", requireAuth, async (req, res, next) => {
     try {
+      const user = (req as any).user;
+      
+      // Admin olmayan kullanıcılar global bildirim oluşturamaz
+      if (req.body.userId === null && user.role !== "admin") {
+        return res.status(403).json({ message: "Global bildirim oluşturma izniniz yok" });
+      }
+      
       const validatedData = insertNotificationSchema.parse(req.body);
-      const notification = await storage.createNotification(validatedData);
+      
+      // userId'yi güvenlik için req.user.id'den al (global bildirimler için admin kontrolü)
+      const notificationData = {
+        ...validatedData,
+        userId: validatedData.userId === null && user.role === "admin" ? null : user.id
+      };
+      
+      const notification = await storage.createNotification(notificationData);
       res.status(201).json(notification);
     } catch (err) {
       if (err instanceof z.ZodError) {

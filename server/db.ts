@@ -148,12 +148,23 @@ sqlite.exec(`
     user_id INTEGER,
     title TEXT NOT NULL,
     message TEXT NOT NULL,
-    type TEXT NOT NULL DEFAULT 'info',
+    type TEXT NOT NULL DEFAULT 'info' CHECK(type IN ('info', 'success', 'warning', 'error')),
     is_read INTEGER NOT NULL DEFAULT 0,
     related_id INTEGER,
     related_type TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+`);
+
+// Bildirimler tablosu için index'ler oluştur (performans için)
+sqlite.exec(`
+  CREATE INDEX IF NOT EXISTS idx_notifications_user_read_created 
+  ON notifications(user_id, is_read, created_at DESC);
+`);
+
+sqlite.exec(`
+  CREATE INDEX IF NOT EXISTS idx_notifications_created_at 
+  ON notifications(created_at DESC);
 `);
 
 export const db = drizzle(sqlite, { schema });

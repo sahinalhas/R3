@@ -277,6 +277,8 @@ export const notifications = sqliteTable("notifications", {
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
+}).extend({
+  type: z.enum(["info", "success", "warning", "error"]).default("info"),
 });
 
 export type Notification = typeof notifications.$inferSelect;

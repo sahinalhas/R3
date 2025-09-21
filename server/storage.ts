@@ -15,7 +15,7 @@ import {
   notifications, type Notification, type InsertNotification
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, like, desc } from "drizzle-orm";
+import { eq, and, like, desc, or } from "drizzle-orm";
 import session from "express-session";
 import SQLiteStore from "better-sqlite3-session-store";
 import { join } from "path";
@@ -133,10 +133,10 @@ export interface IStorage {
   updateSchoolInfo(data: InsertSchoolInfo): Promise<SchoolInfo>;
   
   // Bildirimler işlemleri
-  getNotifications(userId?: number, limit?: number, onlyUnread?: boolean): Promise<Notification[]>;
+  getNotifications(userId?: number, limit?: number, onlyUnread?: boolean, offset?: number): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: number, userId?: number): Promise<boolean>;
-  markAllNotificationsAsRead(userId?: number): Promise<boolean>;
+  markAllNotificationsAsRead(userId?: number): Promise<number>;
   
   // Session store
   sessionStore: any;
@@ -1134,25 +1134,33 @@ export class DatabaseStorage implements IStorage {
   
   // ===== Bildirimler işlemleri =====
   
-  async getNotifications(userId?: number, limit: number = 50, onlyUnread: boolean = false): Promise<Notification[]> {
+  async getNotifications(userId?: number, limit: number = 50, onlyUnread: boolean = false, offset: number = 0): Promise<Notification[]> {
     try {
       let query = db.select().from(notifications);
       
-      // Kullanıcı ID filtresi (null=tüm kullanıcılar için)
+      // Kullanıcıya ait bildirimler + global bildirimler (userId=null)
       if (userId !== undefined) {
-        query = query.where(eq(notifications.userId, userId)) as any;
+        const userCondition = eq(notifications.userId, userId);
+        const globalCondition = eq(notifications.userId, null);
+        query = query.where(or(userCondition, globalCondition)) as any;
       }
       
       // Sadece okunmamış bildirimler filtresi
       if (onlyUnread) {
-        const conditions = userId !== undefined 
-          ? and(eq(notifications.userId, userId), eq(notifications.isRead, 0))
-          : eq(notifications.isRead, 0);
-        query = query.where(conditions) as any;
+        const userCondition = userId !== undefined 
+          ? or(eq(notifications.userId, userId), eq(notifications.userId, null))
+          : undefined;
+        const readCondition = eq(notifications.isRead, 0);
+        
+        const finalCondition = userCondition 
+          ? and(userCondition, readCondition)
+          : readCondition;
+        
+        query = query.where(finalCondition) as any;
       }
       
-      // Sıralama ve limit
-      const results = await query.orderBy(desc(notifications.createdAt)).limit(limit);
+      // Sıralama, offset ve limit
+      const results = await query.orderBy(desc(notifications.createdAt)).limit(limit).offset(offset);
       
       return results;
     } catch (error) {
@@ -1197,7 +1205,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  async markAllNotificationsAsRead(userId?: number): Promise<boolean> {
+  async markAllNotificationsAsRead(userId?: number): Promise<number> {
     try {
       let whereCondition;
       
@@ -1212,10 +1220,10 @@ export class DatabaseStorage implements IStorage {
         .set({ isRead: 1 })
         .where(whereCondition);
       
-      return result.changes > 0;
+      return result.changes;
     } catch (error) {
       console.error(`Tüm bildirimler okundu olarak işaretlenirken hata: ${error}`);
-      return false;
+      return 0;
     }
   }
 }
