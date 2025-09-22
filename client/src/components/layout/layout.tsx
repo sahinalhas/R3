@@ -2,7 +2,6 @@ import { useState, ReactNode, useEffect } from "react";
 import Sidebar from "./sidebar";
 import Topbar from "./topbar";
 import { cn } from "@/lib/utils";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 
@@ -13,7 +12,6 @@ type LayoutProps = {
 };
 
 export default function Layout({ children, title, description }: LayoutProps) {
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
 
@@ -28,27 +26,15 @@ export default function Layout({ children, title, description }: LayoutProps) {
     }
   }, [title]);
 
-  const toggleMobileSidebar = () => {
-    setIsMobileSidebarOpen(!isMobileSidebarOpen);
-  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-background dark:bg-background">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:block">
-        <Sidebar />
-      </div>
+      {/* Sabit Sol Menü - Tüm ekranlarda görünür */}
+      <Sidebar />
 
-      {/* Mobile Sidebar */}
-      <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-        <SheetContent side="left" className="p-0 w-72 max-w-full border-r-0">
-          <Sidebar />
-        </SheetContent>
-      </Sheet>
-
-      {/* Main Content */}
+      {/* İçerik Alanı */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Topbar toggleMobileSidebar={toggleMobileSidebar} />
+        <Topbar />
 
         {/* Page Content */}
         <main className="relative flex-1 overflow-y-auto py-6 px-4 md:px-8 custom-scrollbar bg-background/50 backdrop-blur-sm">
