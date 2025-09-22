@@ -35,7 +35,9 @@ export default function Layout({ children, title, description }: LayoutProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-background dark:bg-background">
       {/* Desktop Sidebar */}
-      <Sidebar />
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
 
       {/* Mobile Sidebar */}
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
