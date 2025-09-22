@@ -55,7 +55,7 @@ sqlite.exec(`
     time TEXT NOT NULL,
     duration_minutes INTEGER NOT NULL DEFAULT 30,
     subject TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'bekliyor',
+    status TEXT NOT NULL DEFAULT 'beklemede',
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
@@ -69,6 +69,58 @@ sqlite.exec(`
     message TEXT NOT NULL,
     related_id INTEGER,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Çalışma Planı tablosunu oluştur (eğer yoksa)
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS study_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER NOT NULL,
+    course_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Konu İlerleme tablosunu oluştur (eğer yoksa)
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS subject_progress (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER NOT NULL,
+    subject_id INTEGER NOT NULL,
+    total_time INTEGER NOT NULL,
+    completed_time INTEGER NOT NULL DEFAULT 0,
+    remaining_time INTEGER NOT NULL,
+    is_completed INTEGER NOT NULL DEFAULT 0,
+    last_study_date TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Çalışma Planı Konuları tablosunu oluştur (eğer yoksa)
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS study_plan_subjects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    study_plan_id INTEGER NOT NULL,
+    subject_progress_id INTEGER NOT NULL,
+    allocated_time INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Okul Bilgileri tablosunu oluştur (eğer yoksa)
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS school_info (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    school_name TEXT NOT NULL,
+    province TEXT NOT NULL,
+    district TEXT NOT NULL,
+    logo_url TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 `);
 
