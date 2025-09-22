@@ -82,6 +82,26 @@ type ImportedSubject = {
   duration: number;
 };
 
+// Categories for grouping courses
+ type Category = 'okul' | 'tyt' | 'ayt' | 'iett' | 'lgs';
+ const CATEGORY_LABELS: Record<Category, string> = {
+  okul: 'Okul Dersleri',
+  tyt: 'TYT',
+  ayt: 'AYT',
+  iett: 'İETT',
+  lgs: 'LGS',
+ };
+ function getCourseCategory(name: string): Category {
+  const original = name || '';
+  const lower = original.toLowerCase();
+  // Basic prefix or tag checks
+  if (/^(tyt|\[tyt\]|tyt[\s:-])/i.test(original) || lower.includes(' tyt ')) return 'tyt';
+  if (/^(ayt|\[ayt\]|ayt[\s:-])/i.test(original) || lower.includes(' ayt ')) return 'ayt';
+  if (/^(lgs|\[lgs\]|lgs[\s:-])/i.test(original) || lower.includes(' lgs ')) return 'lgs';
+  if (/^(iett|\[iett\]|iett[\s:-])/i.test(original) || lower.includes(' iett ') || lower.includes(' i̇ett ')) return 'iett';
+  return 'okul';
+ }
+
 // Schemas
 const courseSchema = z.object({
   name: z.string().min(1, "Ders adı zorunludur")
@@ -105,6 +125,8 @@ export function CourseSubjectsManager() {
   const [importedSubjects, setImportedSubjects] = useState<ImportedSubject[]>([]);
   const [importProgress, setImportProgress] = useState(0);
   const { toast } = useToast();
+
+  const [activeCategory, setActiveCategory] = useState<Category>('okul');
 
   const queryClient = useQueryClient();
 
@@ -739,8 +761,27 @@ export function CourseSubjectsManager() {
     refetchSubjects();
   };
 
+  const filteredCourses = courses.filter((c) => getCourseCategory(c.name) === activeCategory);
+
+  useEffect(() => {
+    if (selectedCourse && getCourseCategory(selectedCourse.name) !== activeCategory) {
+      setSelectedCourse(null);
+    }
+  }, [activeCategory]);
+
   return (
     <div className="space-y-6">
+      <div>
+        <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as Category)} className="w-full">
+          <TabsList className="bg-muted/50 p-1 rounded-xl mb-4">
+            <TabsTrigger value="okul" className="rounded-lg">Okul Dersleri</TabsTrigger>
+            <TabsTrigger value="tyt" className="rounded-lg">TYT</TabsTrigger>
+            <TabsTrigger value="ayt" className="rounded-lg">AYT</TabsTrigger>
+            <TabsTrigger value="iett" className="rounded-lg">İETT</TabsTrigger>
+            <TabsTrigger value="lgs" className="rounded-lg">LGS</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
       <div className="flex flex-col md:flex-row gap-6">
         {/* Courses List */}
         <div className="w-full md:w-1/3">
@@ -758,7 +799,7 @@ export function CourseSubjectsManager() {
                 </Button>
               </div>
               <CardDescription>
-                {courses.length} ders listeleniyor
+                {filteredCourses.length} ders listeleniyor ({CATEGORY_LABELS[activeCategory]})
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -766,10 +807,10 @@ export function CourseSubjectsManager() {
                 <div className="flex justify-center p-4">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                 </div>
-              ) : courses.length === 0 ? (
+              ) : filteredCourses.length === 0 ? (
                 <div className="text-center p-4 text-muted-foreground">
                   <Book className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                  <p>Henüz ders eklenmemiş</p>
+                  <p>Bu kategoride ders yok</p>
                   <Button 
                     variant="link" 
                     className="mt-2 text-primary"
@@ -780,7 +821,7 @@ export function CourseSubjectsManager() {
                 </div>
               ) : (
                 <ul className="space-y-1">
-                  {courses.map((course) => (
+                  {filteredCourses.map((course) => (
                     <li key={course.id}>
                       <div 
                         className={`p-2 rounded-md flex items-center justify-between cursor-pointer transition-colors ${
