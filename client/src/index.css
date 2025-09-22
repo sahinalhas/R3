@@ -131,7 +131,7 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-background text-foreground overflow-x-hidden;
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -388,4 +388,3 @@
     @apply bg-white/80 dark:bg-white/20 backdrop-blur-xl border border-white/30 dark:border-white/10;
   }
 }
-

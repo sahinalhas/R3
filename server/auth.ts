@@ -163,40 +163,70 @@ export function setupAuth(app: Express) {
   app.post("/api/user/change-password", async (req, res, next) => {
     try {
       if (!req.isAuthenticated()) return res.sendStatus(401);
-      
+
       const userId = (req.user as User).id;
       const { currentPassword, newPassword } = req.body;
-      
+
       // Mevcut şifreyi kontrol et
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "Kullanıcı bulunamadı" });
       }
-      
+
       // Mevcut şifre doğru mu kontrol et
       const isPasswordValid = await comparePasswords(currentPassword, user.password);
       if (!isPasswordValid) {
         return res.status(400).json({ message: "Mevcut şifre hatalı" });
       }
-      
+
       // Yeni şifre en az 6 karakter olmalı
       if (newPassword.length < 6) {
         return res.status(400).json({ message: "Yeni şifre en az 6 karakter olmalıdır" });
       }
-      
+
       // Şifreyi güncelle
       const hashedPassword = await hashPassword(newPassword);
       const updatedUser = await storage.updateUser(userId, { password: hashedPassword });
-      
+
       if (!updatedUser) {
         return res.status(404).json({ message: "Kullanıcı bilgileri güncellenirken hata oluştu" });
       }
-      
+
       // Kullanıcıyı yeniden giriş yaptır
       req.login(updatedUser, (err) => {
         if (err) return next(err);
-        
+
         res.json({ success: true, message: "Şifreniz başarıyla değiştirildi" });
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Geliştirici hızlı giriş (sadece geliştirme ortamında)
+  app.post("/api/dev-login", async (req, res, next) => {
+    try {
+      const isDev = req.app.get("env") === "development" || process.env.ALLOW_DEV_LOGIN === "true";
+      if (!isDev) {
+        return res.status(403).json({ message: "Dev login sadece geliştirme ortamında kullanılabilir" });
+      }
+
+      const defaultUsername = "dev";
+      let user = await storage.getUserByUsername(defaultUsername);
+      if (!user) {
+        const hashed = await hashPassword("dev");
+        user = await storage.createUser({
+          username: defaultUsername,
+          password: hashed,
+          fullName: "Geliştirici Kullanıcı",
+          role: "admin",
+        });
+      }
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        const { password, ...userWithoutPassword } = user!;
+        res.status(200).json(userWithoutPassword);
       });
     } catch (err) {
       next(err);

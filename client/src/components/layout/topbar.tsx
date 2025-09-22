@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
-import { 
-  Bell, 
-  Menu, 
-  ChevronDown, 
-  Search, 
-  Sun, 
-  Moon, 
-  Laptop, 
-  CalendarClock, 
+import {
+  Bell,
+  ChevronDown,
+  Search,
+  Sun,
+  Moon,
+  Laptop,
+  CalendarClock,
   Users,
   User,
   Settings,
@@ -33,14 +32,11 @@ import {
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ThemeProvider, useTheme } from "next-themes";
+import { useTheme } from "next-themes";
 import { Link } from "wouter";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
-type TopbarProps = {
-  toggleMobileSidebar: () => void;
-};
-
-export default function Topbar({ toggleMobileSidebar }: TopbarProps) {
+export default function Topbar() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
@@ -86,23 +82,14 @@ export default function Topbar({ toggleMobileSidebar }: TopbarProps) {
     <header className="bg-background border-b border-border/40 backdrop-blur-sm z-20 relative">
       <div className="container flex h-16 items-center justify-between md:px-4 lg:px-6">
         {/* Sol Taraf */}
-        <div className="flex items-center gap-4">
-          {/* Mobile Sidebar Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleMobileSidebar}
-            className="md:hidden text-foreground"
-          >
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Menüyü Aç</span>
-          </Button>
-          
-          {/* Arama Butonu - Tablet ve Üstü */}
-          <div className="hidden md:flex relative">
-            <Button 
-              variant="ghost" 
-              onClick={() => setShowSearch(!showSearch)} 
+        <div className="flex items-center gap-2 md:gap-4">
+          {/* Menü Aç/Kapa */}
+          <SidebarTrigger className="mr-1" />
+          {/* Arama Butonu */}
+          <div className="flex relative">
+            <Button
+              variant="ghost"
+              onClick={() => setShowSearch(!showSearch)}
               className="text-muted-foreground hover:text-foreground"
               size="sm"
             >
