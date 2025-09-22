@@ -82,12 +82,14 @@ export default function Topbar() {
     <header className="bg-background border-b border-border/40 backdrop-blur-sm z-20 relative">
       <div className="container flex h-16 items-center justify-between md:px-4 lg:px-6">
         {/* Sol Taraf */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
+          {/* Menü Aç/Kapa */}
+          <SidebarTrigger className="mr-1" />
           {/* Arama Butonu */}
           <div className="flex relative">
-            <Button 
-              variant="ghost" 
-              onClick={() => setShowSearch(!showSearch)} 
+            <Button
+              variant="ghost"
+              onClick={() => setShowSearch(!showSearch)}
               className="text-muted-foreground hover:text-foreground"
               size="sm"
             >
