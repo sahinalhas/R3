@@ -48,7 +48,7 @@ export const appointments = sqliteTable("appointments", {
   time: text("time").notNull(),
   durationMinutes: integer("duration_minutes").default(30).notNull(),
   subject: text("subject").notNull(),
-  status: text("status").default("bekliyor").notNull(),
+  status: text("status").default("beklemede").notNull(),
   notes: text("notes"),
   createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
 });
@@ -220,7 +220,7 @@ export const insertSubjectProgressSchema = createInsertSchema(subjectProgress).o
   createdAt: true,
 });
 
-// Konu Çalışma Planı tablosu (çalışma planı ve konu ilerlemesi arasındaki bağlantı)
+// Konu Çalışma Planı tablosu (çalışma planı ve konu ilerlemesi arasındaki ba��lantı)
 export const studyPlanSubjects = sqliteTable("study_plan_subjects", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   studyPlanId: integer("study_plan_id").notNull(), // Hangi çalışma planına ait olduğu
