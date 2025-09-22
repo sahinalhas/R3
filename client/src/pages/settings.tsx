@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import SchoolInfoComponent from "@/components/school-info-component";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,6 +12,7 @@ import ClassHourForm from "@/components/class-hours/class-hour-form";
 import BulkClassHourForm from "@/components/class-hours/bulk-class-hour-form";
 import Layout from "@/components/layout/layout";
 import { CourseSubjectsManager } from "@/components/CourseSubjectsManager";
+import { useLocation } from "wouter";
 import {
   Card,
   CardContent,
@@ -121,6 +122,7 @@ type TopicsFormValues = z.infer<typeof topicsFormSchema>;
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const [location, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { user, updateProfileMutation } = useAuth();
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -608,6 +610,29 @@ export default function SettingsPage() {
     }
   };
 
+  // Tabs state synced with query param
+  const allowedTabs = new Set([
+    "profile",
+    "password",
+    "notifications",
+    "class-hours",
+    "counseling-topics",
+    "course-subjects",
+    "data-backup",
+    "school-info",
+  ]);
+  const getTabFromLocation = (loc: string) => {
+    const query = loc.split("?")[1] || "";
+    const params = new URLSearchParams(query);
+    const t = params.get("tab") || "profile";
+    return allowedTabs.has(t) ? t : "profile";
+  };
+  const [activeTab, setActiveTab] = useState<string>(getTabFromLocation(location));
+  useEffect(() => {
+    const next = getTabFromLocation(location);
+    if (next !== activeTab) setActiveTab(next);
+  }, [location]);
+
   return (
     <Layout title="Ayarlar" description="Hesap ve uygulama ayarları">
       {/* Ana başlık ve açıklama */}
@@ -634,7 +659,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="profile" className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setLocation(`/settings?tab=${v}`, { replace: true }); }} className="w-full">
         <TabsList className="bg-muted/50 p-1 rounded-xl mb-6">
           <TabsTrigger 
             value="profile" 
