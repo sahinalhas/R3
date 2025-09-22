@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
-import { 
-  Bell, 
-  Menu, 
-  ChevronDown, 
-  Search, 
-  Sun, 
-  Moon, 
-  Laptop, 
-  CalendarClock, 
+import {
+  Bell,
+  ChevronDown,
+  Search,
+  Sun,
+  Moon,
+  Laptop,
+  CalendarClock,
   Users,
   User,
   Settings,
@@ -33,14 +32,10 @@ import {
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ThemeProvider, useTheme } from "next-themes";
+import { useTheme } from "next-themes";
 import { Link } from "wouter";
 
-type TopbarProps = {
-  toggleMobileSidebar: () => void;
-};
-
-export default function Topbar({ toggleMobileSidebar }: TopbarProps) {
+export default function Topbar() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
@@ -87,19 +82,8 @@ export default function Topbar({ toggleMobileSidebar }: TopbarProps) {
       <div className="container flex h-16 items-center justify-between md:px-4 lg:px-6">
         {/* Sol Taraf */}
         <div className="flex items-center gap-4">
-          {/* Mobile Sidebar Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleMobileSidebar}
-            className="md:hidden text-foreground"
-          >
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Menüyü Aç</span>
-          </Button>
-          
-          {/* Arama Butonu - Tablet ve Üstü */}
-          <div className="hidden md:flex relative">
+          {/* Arama Butonu */}
+          <div className="flex relative">
             <Button 
               variant="ghost" 
               onClick={() => setShowSearch(!showSearch)} 
