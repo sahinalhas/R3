@@ -83,12 +83,12 @@ type ImportedSubject = {
 };
 
 // Categories for grouping courses
- type Category = 'okul' | 'tyt' | 'ayt' | 'iett' | 'lgs';
+ type Category = 'okul' | 'tyt' | 'ayt' | 'ydt' | 'lgs';
  const CATEGORY_LABELS: Record<Category, string> = {
   okul: 'Okul Dersleri',
   tyt: 'TYT',
   ayt: 'AYT',
-  iett: 'İETT',
+  ydt: 'YDT',
   lgs: 'LGS',
  };
  function getCourseCategory(name: string): Category {
@@ -98,7 +98,7 @@ type ImportedSubject = {
   if (/^(tyt|\[tyt\]|tyt[\s:-])/i.test(original) || lower.includes(' tyt ')) return 'tyt';
   if (/^(ayt|\[ayt\]|ayt[\s:-])/i.test(original) || lower.includes(' ayt ')) return 'ayt';
   if (/^(lgs|\[lgs\]|lgs[\s:-])/i.test(original) || lower.includes(' lgs ')) return 'lgs';
-  if (/^(iett|\[iett\]|iett[\s:-])/i.test(original) || lower.includes(' iett ') || lower.includes(' i̇ett ')) return 'iett';
+  if (/^(ydt|\[ydt\]|ydt[\s:-])/i.test(original) || lower.includes(' ydt ')) return 'ydt';
   return 'okul';
  }
 
@@ -777,7 +777,7 @@ export function CourseSubjectsManager() {
             <TabsTrigger value="okul" className="rounded-lg">Okul Dersleri</TabsTrigger>
             <TabsTrigger value="tyt" className="rounded-lg">TYT</TabsTrigger>
             <TabsTrigger value="ayt" className="rounded-lg">AYT</TabsTrigger>
-            <TabsTrigger value="iett" className="rounded-lg">İETT</TabsTrigger>
+            <TabsTrigger value="ydt" className="rounded-lg">YDT</TabsTrigger>
             <TabsTrigger value="lgs" className="rounded-lg">LGS</TabsTrigger>
           </TabsList>
         </Tabs>
