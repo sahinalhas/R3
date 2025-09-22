@@ -34,6 +34,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "next-themes";
 import { Link } from "wouter";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export default function Topbar() {
   const { user, logoutMutation } = useAuth();
