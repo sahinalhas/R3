@@ -267,12 +267,24 @@ export function CourseSubjectsManager() {
             'Content-Type': 'application/json',
           }
         });
-        
+
         if (!response.ok) {
           throw new Error('Failed to delete course');
         }
-        
-        return await response.json();
+
+        // Server returns 204 No Content on success, so avoid parsing JSON for empty response
+        if (response.status === 204) {
+          return { success: true };
+        }
+
+        // If there's a body, parse it safely
+        const text = await response.text();
+        if (!text) return { success: true };
+        try {
+          return JSON.parse(text);
+        } catch (err) {
+          return { success: true };
+        }
       } catch (error) {
         console.error('Error deleting course:', error);
         throw error;
@@ -388,12 +400,22 @@ export function CourseSubjectsManager() {
             'Content-Type': 'application/json',
           }
         });
-        
+
         if (!response.ok) {
           throw new Error('Failed to delete subject');
         }
-        
-        return await response.json();
+
+        if (response.status === 204) {
+          return { success: true };
+        }
+
+        const text = await response.text();
+        if (!text) return { success: true };
+        try {
+          return JSON.parse(text);
+        } catch (err) {
+          return { success: true };
+        }
       } catch (error) {
         console.error('Error deleting subject:', error);
         throw error;
@@ -497,7 +519,7 @@ export function CourseSubjectsManager() {
       toast({
         variant: "destructive",
         title: "Hata",
-        description: error.message || "Dersler ve konuları içe aktarılırken bir hata oluştu.",
+        description: error.message || "Dersler ve konuları içe aktar��lırken bir hata oluştu.",
       });
     }
   });
