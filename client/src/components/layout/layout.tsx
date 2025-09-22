@@ -49,10 +49,13 @@ export default function Layout({ children, title, description }: LayoutProps) {
         <Topbar toggleMobileSidebar={toggleMobileSidebar} />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto py-6 px-4 md:px-8 custom-scrollbar bg-background/50 backdrop-blur-sm">
+        <main className="relative flex-1 overflow-y-auto py-6 px-4 md:px-8 custom-scrollbar bg-background/50 backdrop-blur-sm">
+          {/* Background decorations */}
+          <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.03] bg-grid-pattern" />
+          <div className="pointer-events-none absolute -top-40 -right-40 w-[60vw] h-[60vw] -z-10 rounded-full bg-gradient-radial from-primary/20 via-secondary/10 to-transparent blur-3xl" />
           <AnimatePresence>
             {isPageLoaded && (
-              <motion.div 
+              <motion.div
                 className="max-w-7xl mx-auto space-y-6"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
