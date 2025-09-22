@@ -100,7 +100,20 @@ type ImportedSubject = {
   if (/^(lgs|\[lgs\]|lgs[\s:-])/i.test(original) || lower.includes(' lgs ')) return 'lgs';
   if (/^(ydt|\[ydt\]|ydt[\s:-])/i.test(original) || lower.includes(' ydt ')) return 'ydt';
   return 'okul';
- }
+}
+
+function formatCourseNameByCategory(name: string, category: Category): string {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return trimmed;
+  if (category === 'okul') return trimmed;
+  // Remove any existing known category prefix to avoid duplicates or wrong tags
+  const cleaned = trimmed.replace(/^\s*(?:\[(?:tyt|ayt|ydt|lgs)\]|(?:tyt|ayt|ydt|lgs))\s*[:\-]?\s*/i, '');
+  const prefix = CATEGORY_LABELS[category];
+  // If already correctly prefixed, keep as is
+  const alreadyPrefixed = new RegExp(`^(?:\\[${prefix}\\]|${prefix})\\s*[:\\-]?\\s*`, 'i').test(trimmed);
+  if (alreadyPrefixed) return trimmed;
+  return `${prefix} ${cleaned}`;
+}
 
 // Schemas
 const courseSchema = z.object({
@@ -708,10 +721,15 @@ export function CourseSubjectsManager() {
   }, [isEditingSubject, selectedSubject, subjectForm]);
 
   const handleSubmitCourse = (data: z.infer<typeof courseSchema>) => {
+    const formattedName = activeCategory !== 'okul'
+      ? formatCourseNameByCategory(data.name, activeCategory)
+      : (data.name || '').trim();
+    const payload = { name: formattedName };
+
     if (isEditingCourse && selectedCourse) {
-      updateCourseMutation.mutate({ id: selectedCourse.id, data });
+      updateCourseMutation.mutate({ id: selectedCourse.id, data: payload });
     } else {
-      addCourseMutation.mutate(data);
+      addCourseMutation.mutate(payload);
     }
   };
 
