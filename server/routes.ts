@@ -33,7 +33,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Öğrenci Yönetimi API Routes =====
   
   // Tüm öğrencileri getir
-  app.get("/api/students", async (req, res, next) => {
+  app.get("/api/students", requireAuth, async (req, res, next) => {
     try {
       const query = typeof req.query.q === 'string' ? req.query.q : undefined;
       const students = await storage.getStudents(query);
@@ -44,7 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tekil öğrenci getir
-  app.get("/api/students/:id", async (req, res, next) => {
+  app.get("/api/students/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const student = await storage.getStudent(id);
@@ -60,7 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Yeni öğrenci ekle
-  app.post("/api/students", async (req, res, next) => {
+  app.post("/api/students", requireAuth, async (req, res, next) => {
     try {
       const validatedData = insertStudentSchema.parse(req.body);
       
@@ -89,7 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Öğrenci güncelle
-  app.put("/api/students/:id", async (req, res, next) => {
+  app.put("/api/students/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertStudentSchema.partial().parse(req.body);
@@ -126,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Öğrenci sil
-  app.delete("/api/students/:id", async (req, res, next) => {
+  app.delete("/api/students/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -151,7 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Toplu öğrenci içe aktarma
-  app.post("/api/students/bulk-import", async (req, res, next) => {
+  app.post("/api/students/bulk-import", requireAuth, async (req, res, next) => {
     try {
       // Veri doğrulama için şema oluştur
       const bulkImportSchema = z.object({
@@ -217,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Randevu Yönetimi API Routes =====
   
   // Tüm randevuları getir
-  app.get("/api/appointments", async (req, res, next) => {
+  app.get("/api/appointments", requireAuth, async (req, res, next) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       let appointments = await storage.getUpcomingAppointments(limit);
@@ -244,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Öğrencinin randevularını getir
-  app.get("/api/students/:id/appointments", async (req, res, next) => {
+  app.get("/api/students/:id/appointments", requireAuth, async (req, res, next) => {
     try {
       const studentId = parseInt(req.params.id);
       const appointments = await storage.getAppointmentsByStudent(studentId);
@@ -255,7 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tekil randevu getir
-  app.get("/api/appointments/:id", async (req, res, next) => {
+  app.get("/api/appointments/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const appointment = await storage.getAppointment(id);
@@ -271,7 +271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Yeni randevu ekle
-  app.post("/api/appointments", async (req, res, next) => {
+  app.post("/api/appointments", requireAuth, async (req, res, next) => {
     try {
       const validatedData = insertAppointmentSchema.parse(req.body);
       
@@ -300,7 +300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Randevu güncelle
-  app.put("/api/appointments/:id", async (req, res, next) => {
+  app.put("/api/appointments/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertAppointmentSchema.partial().parse(req.body);
@@ -339,7 +339,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Randevu sil
-  app.delete("/api/appointments/:id", async (req, res, next) => {
+  app.delete("/api/appointments/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -369,7 +369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== İstatistik ve Aktivite API Routes =====
   
   // İstatistikleri getir
-  app.get("/api/stats", async (req, res, next) => {
+  app.get("/api/stats", requireAuth, async (req, res, next) => {
     try {
       const stats = await storage.getStats();
       res.json(stats);
@@ -379,7 +379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Son aktiviteleri getir
-  app.get("/api/activities", async (req, res, next) => {
+  app.get("/api/activities", requireAuth, async (req, res, next) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const activities = await storage.getRecentActivities(limit);
@@ -392,7 +392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Detaylı Raporlama API Routes =====
 
   // Öğrenci dağılımı ve detaylı öğrenci istatistikleri
-  app.get("/api/reports/student-distribution", async (req, res, next) => {
+  app.get("/api/reports/student-distribution", requireAuth, async (req, res, next) => {
     try {
       // Tüm öğrencileri çek
       const students = await storage.getStudents();
@@ -477,7 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Randevu istatistikleri ve raporları
-  app.get("/api/reports/appointments", async (req, res, next) => {
+  app.get("/api/reports/appointments", requireAuth, async (req, res, next) => {
     try {
       // Tüm randevuları çek
       const appointments = await storage.getAppointments(undefined);
@@ -578,7 +578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rehberlik görüşmeleri istatistikleri 
-  app.get("/api/reports/counseling-sessions", async (req, res, next) => {
+  app.get("/api/reports/counseling-sessions", requireAuth, async (req, res, next) => {
     try {
       // Tüm görüşmeleri çek
       const sessions = await storage.getCounselingSessions();
@@ -653,7 +653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Görüşme Konuları API Routes =====
   
   // Yıllık özet rapor - Veri yedekleme için ön hazırlık
-  app.get("/api/reports/yearly-summary", async (req, res, next) => {
+  app.get("/api/reports/yearly-summary", requireAuth, async (req, res, next) => {
     try {
       // Geçerli yılı veya belirtilen yılı al
       const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
@@ -732,7 +732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Tüm görüşme konularını getir
-  app.get("/api/counseling-topics", async (req, res, next) => {
+  app.get("/api/counseling-topics", requireAuth, async (req, res, next) => {
     try {
       const topics = await storage.getCounselingTopics();
       res.json(topics);
@@ -742,7 +742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Yeni görüşme konusu ekle
-  app.post("/api/counseling-topics", async (req, res, next) => {
+  app.post("/api/counseling-topics", requireAuth, async (req, res, next) => {
     try {
       const validatedData = insertCounselingTopicSchema.parse(req.body);
       
@@ -765,7 +765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Toplu görüşme konusu ekle
-  app.post("/api/counseling-topics/bulk", async (req, res, next) => {
+  app.post("/api/counseling-topics/bulk", requireAuth, async (req, res, next) => {
     try {
       const validatedData = z.object({
         topics: z.string().min(1, "Konular boş olamaz")
@@ -800,7 +800,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Görüşme konusu sil
-  app.delete("/api/counseling-topics/:id", async (req, res, next) => {
+  app.delete("/api/counseling-topics/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -826,7 +826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Ders Saatleri API Routes =====
   
   // Tüm ders saatlerini getir
-  app.get("/api/class-hours", async (req, res, next) => {
+  app.get("/api/class-hours", requireAuth, async (req, res, next) => {
     try {
       const dayOfWeek = req.query.day ? parseInt(req.query.day as string) : undefined;
       const classHours = await storage.getClassHours(dayOfWeek);
@@ -837,7 +837,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Tekil ders saati getir
-  app.get("/api/class-hours/:id", async (req, res, next) => {
+  app.get("/api/class-hours/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const classHour = await storage.getClassHour(id);
@@ -853,7 +853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Yeni ders saati ekle
-  app.post("/api/class-hours", async (req, res, next) => {
+  app.post("/api/class-hours", requireAuth, async (req, res, next) => {
     try {
       const validatedData = insertClassHourSchema.parse(req.body);
       
@@ -876,7 +876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Ders saati güncelle
-  app.put("/api/class-hours/:id", async (req, res, next) => {
+  app.put("/api/class-hours/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertClassHourSchema.partial().parse(req.body);
@@ -905,7 +905,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Ders saati sil
-  app.delete("/api/class-hours/:id", async (req, res, next) => {
+  app.delete("/api/class-hours/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -931,7 +931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Veri Yedekleme ve Geri Yükleme API Routes 
   // Veri yedekleme
-  app.get("/api/backup", async (req, res, next) => {
+  app.get("/api/backup", requireAuth, async (req, res, next) => {
     try {
       // Tüm veri tablolarını al
       const allData: Record<string, any> = {
@@ -991,7 +991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Veri geri yükleme (restore)
-  app.post("/api/restore", async (req, res, next) => {
+  app.post("/api/restore", requireAuth, async (req, res, next) => {
     try {
       const backupData = req.body;
       
@@ -1226,7 +1226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Rehberlik Görüşme Kayıtları API Routes =====
   
   // Tüm görüşme kayıtlarını getir
-  app.get("/api/counseling-sessions", async (req, res, next) => {
+  app.get("/api/counseling-sessions", requireAuth, async (req, res, next) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const all = req.query.all === 'true';
@@ -1261,7 +1261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Belirli bir güne ait görüşme kayıtlarını getir
-  app.get("/api/counseling-sessions/by-date/:date", async (req, res, next) => {
+  app.get("/api/counseling-sessions/by-date/:date", requireAuth, async (req, res, next) => {
     try {
       const date = req.params.date;
       const sessions = await storage.getCounselingSessionsByDate(date);
@@ -1288,7 +1288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Öğrencinin görüşme kayıtlarını getir
-  app.get("/api/students/:id/counseling-sessions", async (req, res, next) => {
+  app.get("/api/students/:id/counseling-sessions", requireAuth, async (req, res, next) => {
     try {
       const studentId = parseInt(req.params.id);
       const sessions = await storage.getCounselingSessionsByStudent(studentId);
@@ -1299,7 +1299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tekil görüşme kaydı getir
-  app.get("/api/counseling-sessions/:id", async (req, res, next) => {
+  app.get("/api/counseling-sessions/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const session = await storage.getCounselingSession(id);
@@ -1326,7 +1326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Yeni görüşme kaydı ekle
-  app.post("/api/counseling-sessions", async (req, res, next) => {
+  app.post("/api/counseling-sessions", requireAuth, async (req, res, next) => {
     try {
       const validatedData = insertCounselingSessionSchema.parse(req.body);
       
@@ -1355,7 +1355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Görüşme kaydını güncelle
-  app.put("/api/counseling-sessions/:id", async (req, res, next) => {
+  app.put("/api/counseling-sessions/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = z.object({
@@ -1400,7 +1400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Görüşmeyi tamamla (çıkış saati ve dersi ekle)
-  app.put("/api/counseling-sessions/:id/complete", async (req, res, next) => {
+  app.put("/api/counseling-sessions/:id/complete", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = z.object({
@@ -1448,7 +1448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Görüşme kaydını sil
-  app.delete("/api/counseling-sessions/:id", async (req, res, next) => {
+  app.delete("/api/counseling-sessions/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -1478,7 +1478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Dersler ve Ders Konuları API Routes =====
   
   // Tüm dersleri getir
-  app.get("/api/courses", async (req, res, next) => {
+  app.get("/api/courses", requireAuth, async (req, res, next) => {
     try {
       const courses = await storage.getCourses();
       res.json(courses);
@@ -1504,7 +1504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Yeni ders ekle
-  app.post("/api/courses", async (req, res, next) => {
+  app.post("/api/courses", requireAuth, async (req, res, next) => {
     try {
       const validatedData = insertCourseSchema.parse(req.body);
       
@@ -1865,7 +1865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Tekil çalışma planı getir
-  app.get("/api/study-plans/:id", async (req, res, next) => {
+  app.get("/api/study-plans/:id", requireAuth, async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const studyPlan = await storage.getStudyPlan(id);
@@ -1881,7 +1881,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Yeni çalışma planı ekle
-  app.post("/api/study-plans", async (req, res, next) => {
+  app.post("/api/study-plans", requireAuth, async (req, res, next) => {
     try {
       const validatedData = insertStudyPlanSchema.parse(req.body);
       
@@ -1986,7 +1986,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Yeni konu ilerlemesi ekle
-  app.post("/api/subject-progress", async (req, res, next) => {
+  app.post("/api/subject-progress", requireAuth, async (req, res, next) => {
     try {
       const validatedData = insertSubjectProgressSchema.parse(req.body);
       
@@ -2312,7 +2312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Okul Bilgileri API
-  app.get("/api/school-info", async (req, res, next) => {
+  app.get("/api/school-info", requireAuth, async (req, res, next) => {
     try {
       const info = await storage.getSchoolInfo();
       
@@ -2331,7 +2331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/school-info", async (req, res, next) => {
+  app.post("/api/school-info", requireAuth, async (req, res, next) => {
     try {
       const validatedData = insertSchoolInfoSchema.parse(req.body);
       

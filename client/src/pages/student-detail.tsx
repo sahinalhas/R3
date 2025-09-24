@@ -69,17 +69,20 @@ export default function StudentDetailPage() {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Öğrenci bilgilerini çek
-  const { data: student, isLoading } = useQuery<Student>({
+  const { data: student, isLoading, error } = useQuery<Student>({
     queryKey: [`/api/students/${id}`],
-    onError: (error: Error) => {
-      toast({
-        title: "Hata",
-        description: "Öğrenci bilgileri yüklenemedi",
-        variant: "destructive",
-      });
-      navigate("/students");
-    },
   });
+
+  // Hata yönetimi
+  if (error) {
+    toast({
+      title: "Hata",
+      description: "Öğrenci bilgileri yüklenemedi",
+      variant: "destructive",
+    });
+    navigate("/students");
+    return null;
+  }
 
   // Öğrenci randevularını çek
   const { data: appointments, isLoading: isAppointmentsLoading } = useQuery<Appointment[]>({
@@ -434,33 +437,191 @@ export default function StudentDetailPage() {
         {/* Detay kartları - Daha fazla sekme ve modern görünüm */}
         <Card className="col-span-1 lg:col-span-3 border-0 shadow-card hover:shadow-card-hover transition-shadow">
           <CardContent className="pt-6">
-            <Tabs defaultValue="information">
+            <Tabs defaultValue="identity">
               <TabsList className="mb-6 w-full justify-start">
-                <TabsTrigger value="information" className="flex items-center">
-                  <FileText className="mr-2 h-4 w-4" />
-                  <span>Genel Bilgiler</span>
+                <TabsTrigger value="identity" className="flex items-center">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Kimlik ve Veli Bilgileri</span>
                 </TabsTrigger>
-                <TabsTrigger value="counseling" className="flex items-center">
+                <TabsTrigger value="academic" className="flex items-center">
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  <span>Akademik Gelişim</span>
+                </TabsTrigger>
+                <TabsTrigger value="psychosocial" className="flex items-center">
                   <MessageSquare className="mr-2 h-4 w-4" />
-                  <span>Rehberlik Oturumları</span>
+                  <span>Psiko-Sosyal Gelişim</span>
                 </TabsTrigger>
-                <TabsTrigger value="appointments" className="flex items-center">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  <span>Randevular</span>
+                <TabsTrigger value="career" className="flex items-center">
+                  <GraduationCap className="mr-2 h-4 w-4" />
+                  <span>Kariyer Planlama</span>
                 </TabsTrigger>
-                <TabsTrigger value="study-plans" className="flex items-center">
-                  <Clock8 className="mr-2 h-4 w-4" />
-                  <span>Çalışma Planı</span>
-                </TabsTrigger>
-                <TabsTrigger value="subject-progress" className="flex items-center">
-                  <ListChecks className="mr-2 h-4 w-4" />
-                  <span>Konu Takibi</span>
+                <TabsTrigger value="pdr-journal" className="flex items-center">
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>PDR Günlüğü</span>
                 </TabsTrigger>
               </TabsList>
               
-              {/* Genel Bilgiler Sekmesi */}
-              <TabsContent value="information" className="border rounded-lg p-4 bg-background/50">
+              {/* BRYS Tab 1: Kimlik ve Veli Bilgileri */}
+              <TabsContent value="identity" className="border rounded-lg p-4 bg-background/50">
                 <div className="space-y-6">
+                  {/* Temel Kimlik Bilgileri */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <User className="mr-2 h-5 w-5 text-primary" />
+                      Kimlik Bilgileri
+                    </h3>
+                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Ad Soyad:</span>
+                              <span className="font-medium">{student.firstName} {student.lastName}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">TC Kimlik No:</span>
+                              <span className="font-medium">{student.tcKimlikNo || "Belirtilmemiş"}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Öğrenci No:</span>
+                              <span className="font-medium">{student.studentNumber}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Sınıf:</span>
+                              <span className="font-medium">{student.class}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Doğum Tarihi:</span>
+                              <span className="font-medium">{formatDate(student.birthDate)} ({calculateAge(student.birthDate)} yaş)</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Cinsiyet:</span>
+                              <span className="font-medium">{student.gender === "erkek" ? "Erkek" : "Kadın"}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Kardeş Sayısı:</span>
+                              <span className="font-medium">{student.siblingCount || 0}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Aile Yapısı:</span>
+                              <span className="font-medium">{student.familyStructure || "Belirtilmemiş"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Ana Bilgileri */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <User className="mr-2 h-5 w-5 text-primary" />
+                      Anne Bilgileri
+                    </h3>
+                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Ad Soyad:</span>
+                              <span className="font-medium">{student.motherName || "Belirtilmemiş"}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Meslek:</span>
+                              <span className="font-medium">{student.motherProfession || "Belirtilmemiş"}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Eğitim Durumu:</span>
+                              <span className="font-medium">{student.motherEducation || "Belirtilmemiş"}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Telefon:</span>
+                              <span className="font-medium">{student.motherPhone || "Belirtilmemiş"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Baba Bilgileri */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <User className="mr-2 h-5 w-5 text-primary" />
+                      Baba Bilgileri
+                    </h3>
+                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Ad Soyad:</span>
+                              <span className="font-medium">{student.fatherName || "Belirtilmemiş"}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Meslek:</span>
+                              <span className="font-medium">{student.fatherProfession || "Belirtilmemiş"}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Eğitim Durumu:</span>
+                              <span className="font-medium">{student.fatherEducation || "Belirtilmemiş"}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Telefon:</span>
+                              <span className="font-medium">{student.fatherPhone || "Belirtilmemiş"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* İletişim ve Acil Durum */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <Phone className="mr-2 h-5 w-5 text-primary" />
+                      İletişim Bilgileri
+                    </h3>
+                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Birincil Veli:</span>
+                            <span className="font-medium">{student.parentName}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Telefon:</span>
+                            <span className="font-medium">{student.phone}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">E-posta:</span>
+                            <span className="font-medium">{student.email || "Belirtilmemiş"}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Adres:</span>
+                            <span className="font-medium truncate max-w-md">{student.address}</span>
+                          </div>
+                          <Separator className="my-2" />
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Acil Durum İletişim:</span>
+                            <span className="font-medium">{student.emergencyContact || "Belirtilmemiş"}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Acil Durum Telefon:</span>
+                            <span className="font-medium">{student.emergencyPhone || "Belirtilmemiş"}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Notlar */}
                   <div>
                     <h3 className="flex items-center text-lg font-medium mb-3">
                       <FileText className="mr-2 h-5 w-5 text-primary" />
@@ -472,26 +633,167 @@ export default function StudentDetailPage() {
                       </CardContent>
                     </Card>
                   </div>
-                  
+                </div>
+              </TabsContent>
+              
+              {/* BRYS Tab 2: Akademik Gelişim */}
+              <TabsContent value="academic" className="border rounded-lg p-4 bg-background/50">
+                <div className="space-y-6">
+                  {/* Akademik Performans Özeti */}
                   <div>
                     <h3 className="flex items-center text-lg font-medium mb-3">
-                      <User className="mr-2 h-5 w-5 text-primary" />
-                      Veli Bilgileri
+                      <BarChart className="mr-2 h-5 w-5 text-primary" />
+                      Akademik Performans Özeti
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                        <CardContent className="pt-6">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-primary">85</div>
+                            <div className="text-sm text-muted-foreground">Genel Ortalama</div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                        <CardContent className="pt-6">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-green-600">12</div>
+                            <div className="text-sm text-muted-foreground">Başarılı Ders</div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                        <CardContent className="pt-6">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-yellow-600">3</div>
+                            <div className="text-sm text-muted-foreground">Geliştirilmesi Gereken</div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  {/* Çalışma Planları */}
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="flex items-center text-lg font-medium">
+                        <Clock8 className="mr-2 h-5 w-5 text-primary" />
+                        Çalışma Planları
+                      </h3>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsAddStudyPlanDialogOpen(true)}
+                      >
+                        <Clock8 className="mr-2 h-4 w-4" />
+                        Plan Oluştur
+                      </Button>
+                    </div>
+                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                      <CardContent className="pt-6">
+                        {isStudyPlansLoading ? (
+                          <div className="flex justify-center items-center h-40">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                          </div>
+                        ) : studyPlans && studyPlans.length > 0 ? (
+                          <div className="space-y-4">
+                            {studyPlans.map((plan) => {
+                              const course = courses?.find(c => c.id === plan.courseId);
+                              return (
+                                <div key={plan.id} className="flex flex-col p-3 border rounded-lg">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                        <BookOpen className="h-5 w-5 text-primary" />
+                                      </div>
+                                      <div>
+                                        <h4 className="font-medium">{course?.name || 'Tanımlanmamış Ders'}</h4>
+                                        <p className="text-sm text-muted-foreground">
+                                          {formatDate(plan.date)} · {plan.startTime} - {plan.endTime}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <Badge variant="outline">
+                                      {plan.status === 'completed' ? 'Tamamlandı' : 'Planlanan'}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            Henüz çalışma planı oluşturulmamış
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Konu İlerlemeleri */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <ListChecks className="mr-2 h-5 w-5 text-primary" />
+                      Konu İlerlemeleri
                     </h3>
                     <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
                       <CardContent className="pt-6">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Veli Adı:</span>
-                            <span className="font-medium">{student.parentName}</span>
+                        {isSubjectProgressLoading ? (
+                          <div className="flex justify-center items-center h-40">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">İletişim:</span>
-                            <span className="font-medium">{student.phone}</span>
+                        ) : subjectProgress && subjectProgress.length > 0 ? (
+                          <div className="space-y-4">
+                            {subjectProgress.map((progress) => (
+                              <div key={progress.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div>
+                                  <h4 className="font-medium">{progress.subjectName}</h4>
+                                  <p className="text-sm text-muted-foreground">Son güncelleme: {formatDate(progress.lastUpdated)}</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Progress value={progress.completionPercentage} className="w-20" />
+                                  <span className="text-sm font-medium">{progress.completionPercentage}%</span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Adres:</span>
-                            <span className="font-medium truncate max-w-md">{student.address}</span>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            Henüz konu ilerlemesi kaydı bulunmuyor
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Akademik Hedefler */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <GraduationCap className="mr-2 h-5 w-5 text-primary" />
+                      Akademik Hedefler
+                    </h3>
+                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <h4 className="font-medium">Matematik Not Ortalaması</h4>
+                              <p className="text-sm text-muted-foreground">Hedef: 85+ ortalama</p>
+                            </div>
+                            <Badge variant="secondary">Devam Ediyor</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <h4 className="font-medium">Fen Bilimleri Başarısı</h4>
+                              <p className="text-sm text-muted-foreground">Hedef: Sınıf birinciliği</p>
+                            </div>
+                            <Badge variant="secondary">Planlanan</Badge>
+                          </div>
+                          <div className="text-center py-4">
+                            <Button variant="outline" size="sm">
+                              <GraduationCap className="mr-2 h-4 w-4" />
+                              Yeni Hedef Ekle
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -499,8 +801,309 @@ export default function StudentDetailPage() {
                   </div>
                 </div>
               </TabsContent>
-              
-              {/* Rehberlik Oturumları Sekmesi */}
+
+              {/* BRYS Tab 3: Psiko-Sosyal Gelişim */}
+              <TabsContent value="psychosocial" className="border rounded-lg p-4 bg-background/50">
+                <div className="space-y-6">
+                  {/* Gelişim Alanları Özeti */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <MessageSquare className="mr-2 h-5 w-5 text-primary" />
+                      Psiko-Sosyal Gelişim Alanları
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                        <CardContent className="pt-6">
+                          <h4 className="font-medium mb-3">Sosyal Beceriler</h4>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>İletişim</span>
+                              <Badge variant="outline" className="bg-green-50 text-green-700">Güçlü</Badge>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Takım Çalışması</span>
+                              <Badge variant="outline" className="bg-yellow-50 text-yellow-700">Geliştirilmeli</Badge>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Liderlik</span>
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700">Orta</Badge>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                        <CardContent className="pt-6">
+                          <h4 className="font-medium mb-3">Duygusal Gelişim</h4>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Öz Güven</span>
+                              <Badge variant="outline" className="bg-green-50 text-green-700">Yüksek</Badge>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Stres Yönetimi</span>
+                              <Badge variant="outline" className="bg-yellow-50 text-yellow-700">Geliştirilmeli</Badge>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Empati</span>
+                              <Badge variant="outline" className="bg-green-50 text-green-700">Güçlü</Badge>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  {/* İlgi ve Yetenek Alanları */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <User className="mr-2 h-5 w-5 text-primary" />
+                      İlgi ve Yetenek Alanları
+                    </h3>
+                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="space-y-4">
+                          <div>
+                            <h4 className="font-medium mb-2">Güçlü Yönleri</h4>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge variant="secondary">Analitik Düşünme</Badge>
+                              <Badge variant="secondary">Yaratıcılık</Badge>
+                              <Badge variant="secondary">Problem Çözme</Badge>
+                              <Badge variant="secondary">Sanat Yeteneği</Badge>
+                            </div>
+                          </div>
+                          <Separator />
+                          <div>
+                            <h4 className="font-medium mb-2">İlgi Alanları</h4>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge variant="outline">Bilim</Badge>
+                              <Badge variant="outline">Teknoloji</Badge>
+                              <Badge variant="outline">Müzik</Badge>
+                              <Badge variant="outline">Spor</Badge>
+                              <Badge variant="outline">Resim</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Yaşam Olayları */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <AlertCircle className="mr-2 h-5 w-5 text-primary" />
+                      Önemli Yaşam Olayları
+                    </h3>
+                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="text-center py-8 text-muted-foreground">
+                          Henüz önemli yaşam olayı kaydı bulunmuyor
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* BRYS Tab 4: Kariyer Planlama */}
+              <TabsContent value="career" className="border rounded-lg p-4 bg-background/50">
+                <div className="space-y-6">
+                  {/* Kariyer Hedefleri */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <GraduationCap className="mr-2 h-5 w-5 text-primary" />
+                      Kariyer Hedefleri
+                    </h3>
+                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <h4 className="font-medium">Kısa Vadeli Hedef</h4>
+                              <p className="text-sm text-muted-foreground">Lise sınavlarında başarılı olmak</p>
+                            </div>
+                            <Badge variant="secondary">Aktif</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <h4 className="font-medium">Uzun Vadeli Hedef</h4>
+                              <p className="text-sm text-muted-foreground">Mühendislik fakültesinde okumak</p>
+                            </div>
+                            <Badge variant="outline">Planlanan</Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Meslek Keşfi */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <User className="mr-2 h-5 w-5 text-primary" />
+                      Meslek Keşfi
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                        <CardContent className="pt-6">
+                          <h4 className="font-medium mb-3">İlgilenilen Meslekler</h4>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Bilgisayar Mühendisi</span>
+                              <Badge variant="outline">%85 Uyum</Badge>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Grafik Tasarımcı</span>
+                              <Badge variant="outline">%70 Uyum</Badge>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Öğretmen</span>
+                              <Badge variant="outline">%60 Uyum</Badge>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                        <CardContent className="pt-6">
+                          <h4 className="font-medium mb-3">Yetenek Testleri</h4>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Mantıksal Zeka</span>
+                              <Badge variant="secondary">Yüksek</Badge>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Görsel Zeka</span>
+                              <Badge variant="secondary">Orta-Yüksek</Badge>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Sosyal Zeka</span>
+                              <Badge variant="secondary">Orta</Badge>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  {/* Üniversite Planlaması */}
+                  <div>
+                    <h3 className="flex items-center text-lg font-medium mb-3">
+                      <BookOpen className="mr-2 h-5 w-5 text-primary" />
+                      Üniversite Planlaması
+                    </h3>
+                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="space-y-4">
+                          <div>
+                            <h4 className="font-medium mb-2">Hedef Üniversiteler</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm p-2 bg-gray-50 rounded">
+                                <span>İstanbul Teknik Üniversitesi - Bilgisayar Müh.</span>
+                                <Badge variant="outline">1. Tercih</Badge>
+                              </div>
+                              <div className="flex justify-between text-sm p-2 bg-gray-50 rounded">
+                                <span>Orta Doğu Teknik Üniversitesi - Bilgisayar Müh.</span>
+                                <Badge variant="outline">2. Tercih</Badge>
+                              </div>
+                            </div>
+                          </div>
+                          <Separator />
+                          <div>
+                            <h4 className="font-medium mb-2">Hazırlık Durumu</h4>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm">Matematik TYT Hazırlığı</span>
+                                <div className="flex items-center gap-2">
+                                  <Progress value={75} className="w-20" />
+                                  <span className="text-sm">75%</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm">Fen Bilimleri AYT Hazırlığı</span>
+                                <div className="flex items-center gap-2">
+                                  <Progress value={60} className="w-20" />
+                                  <span className="text-sm">60%</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* BRYS Tab 5: PDR Günlüğü - Enhanced Counseling Sessions */}
+              <TabsContent value="pdr-journal" className="border rounded-lg p-4 bg-background/50">
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="flex items-center text-lg font-medium">
+                      <FileText className="mr-2 h-5 w-5 text-primary" />
+                      PDR Günlüğü - Rehberlik Görüşme Kayıtları
+                    </h3>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        navigate("/counseling-sessions");
+                      }}
+                    >
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Yeni Görüşme Ekle
+                    </Button>
+                  </div>
+
+                  <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                    <CardContent className="pt-4">
+                      <DataTable
+                        data={counselingSessions || []}
+                        columns={counselingSessionColumns}
+                        loading={isCounselingSessionsLoading}
+                        emptyState="Henüz rehberlik görüşme kaydı bulunmuyor"
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Görüşme İstatistikleri */}
+                  <div>
+                    <h4 className="flex items-center text-md font-medium mb-3">
+                      <BarChart className="mr-2 h-4 w-4 text-primary" />
+                      Görüşme İstatistikleri
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                        <CardContent className="pt-6">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-primary">{counselingSessions?.length || 0}</div>
+                            <div className="text-sm text-muted-foreground">Toplam Görüşme</div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                        <CardContent className="pt-6">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-green-600">
+                              {counselingSessions?.filter(s => s.sessionType === 'bireysel').length || 0}
+                            </div>
+                            <div className="text-sm text-muted-foreground">Bireysel Görüşme</div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
+                        <CardContent className="pt-6">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-blue-600">
+                              {counselingSessions?.filter(s => s.sessionType === 'grup').length || 0}
+                            </div>
+                            <div className="text-sm text-muted-foreground">Grup Görüşmesi</div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Old content to remove */}
               <TabsContent value="counseling">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="flex items-center text-lg font-medium">

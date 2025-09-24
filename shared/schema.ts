@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, blob } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, blob, unique, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -18,18 +18,43 @@ export const insertUserSchema = createInsertSchema(users).pick({
   role: true,
 });
 
-// Öğrenciler tablosu
+// Öğrenciler tablosu (BRYS için genişletildi)
 export const students = sqliteTable("students", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   studentNumber: text("student_number").notNull().unique(),
+  tcKimlikNo: text("tc_kimlik_no").unique(), // TC Kimlik No
   class: text("class").notNull(),
-  birthDate: text("birth_date").notNull(), // SQLite'da date tipi olmadığı için text olarak saklıyoruz
+  birthDate: text("birth_date").notNull(),
   gender: text("gender").notNull(),
-  parentName: text("parent_name").notNull(),
+  photoUrl: text("photo_url"), // Öğrenci fotoğrafı
+  
+  // Veli Bilgileri (Ana)
+  motherName: text("mother_name"),
+  motherProfession: text("mother_profession"),
+  motherEducation: text("mother_education"),
+  motherPhone: text("mother_phone"),
+  
+  // Veli Bilgileri (Baba)
+  fatherName: text("father_name"),
+  fatherProfession: text("father_profession"),
+  fatherEducation: text("father_education"),
+  fatherPhone: text("father_phone"),
+  
+  // Genel İletişim
+  parentName: text("parent_name").notNull(), // Birincil veli
   phone: text("phone").notNull(),
+  email: text("email"),
   address: text("address").notNull(),
+  
+  // Aile Yapısı
+  familyStructure: text("family_structure"), // "birlikte", "ayrı", vs.
+  siblingCount: integer("sibling_count").default(0),
+  emergencyContact: text("emergency_contact"), // Acil durum iletişim
+  emergencyPhone: text("emergency_phone"),
+  
+  // Diğer
   notes: text("notes"),
   createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
 });
@@ -72,7 +97,7 @@ export const insertActivitySchema = createInsertSchema(activities).omit({
   createdAt: true,
 });
 
-// Rehberlik Görüşme Kayıtları tablosu
+// Rehberlik Görüşme Kayıtları tablosu (BRYS için genişletildi)
 export const counselingSessions = sqliteTable("counseling_sessions", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   studentId: integer("student_id").notNull(),
@@ -92,6 +117,15 @@ export const counselingSessions = sqliteTable("counseling_sessions", {
   disciplineStatus: text("discipline_status"), // Disiplin durumu
   sessionType: text("session_type").default("yüz_yüze").notNull(), // Görüşme şekli: yüz_yüze, uzaktan
   detailedNotes: text("detailed_notes"), // Ayrıntılı notlar - görüşme sonrası eklenir
+  
+  // BRYS - Gizlilik ve Takip Alanları
+  confidentialityLevel: text("confidentiality_level").default("normal").notNull(), // "düşük", "normal", "yüksek", "çok_gizli"
+  visibilityRole: text("visibility_role").default("pdr").notNull(), // "pdr", "pdr_yönetim", "okul_yönetimi", "sınıf_öğretmeni"
+  outcomeSummary: text("outcome_summary"), // Görüşme sonucu özeti
+  followUpPlan: text("follow_up_plan"), // Takip planı
+  nextReviewDate: text("next_review_date"), // Bir sonraki değerlendirme tarihi
+  requiresAttention: integer("requires_attention").default(0), // Dikkat gerektiriyor mu? (0=hayır, 1=evet)
+  
   createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
 });
 
@@ -283,3 +317,253 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+// BRYS - Akademik Gelişim Takibi
+// Ders Notları tablosu
+export const studentGrades = sqliteTable("student_grades", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(),
+  courseId: integer("course_id").notNull(),
+  grade: integer("grade").notNull(), // Not değeri
+  term: text("term").notNull(), // Dönem bilgisi
+  academicYear: text("academic_year").notNull(), // Akademik yıl
+  examType: text("exam_type"), // Sınav türü
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+}, (table) => ({
+  // BRYS - Veri bütünlüğü kısıtlamaları
+  uniqueGrade: unique().on(table.studentId, table.courseId, table.term, table.academicYear),
+  studentIdIdx: index("grades_student_id_idx").on(table.studentId),
+  courseIdIdx: index("grades_course_id_idx").on(table.courseId),
+}));
+
+export const insertStudentGradeSchema = createInsertSchema(studentGrades).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Devamsızlık tablosu
+export const attendanceRecords = sqliteTable("attendance_records", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(),
+  date: text("date").notNull(),
+  status: text("status").notNull(), // "özürlü", "özürsüz", "mevcut"
+  reason: text("reason"), // Özür sebebi
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+}, (table) => ({
+  // BRYS - Veri bütünlüğü kısıtlamaları
+  uniqueStudentDate: unique().on(table.studentId, table.date),
+  studentIdIdx: index("attendance_student_id_idx").on(table.studentId),
+}));
+
+export const insertAttendanceRecordSchema = createInsertSchema(attendanceRecords).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Sınav Sonuçları tablosu
+export const examResults = sqliteTable("exam_results", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(),
+  examName: text("exam_name").notNull(), // LGS, YKS, deneme sınavı vs.
+  examDate: text("exam_date").notNull(),
+  totalScore: integer("total_score"),
+  netScores: text("net_scores"), // JSON formatında ders bazında netler
+  ranking: integer("ranking"), // Sıralama
+  examType: text("exam_type").notNull(), // "lgs", "yks", "deneme"
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+}, (table) => ({
+  // BRYS - Veri bütünlüğü kısıtlamaları
+  uniqueExam: unique().on(table.studentId, table.examName, table.examDate),
+  studentIdIdx: index("exams_student_id_idx").on(table.studentId),
+}));
+
+export const insertExamResultSchema = createInsertSchema(examResults).omit({
+  id: true,
+  createdAt: true,
+});
+
+// BRYS - Psiko-Sosyal Gelişim
+// Envanter/Test Sonuçları tablosu
+export const inventoryResults = sqliteTable("inventory_results", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(),
+  inventoryName: text("inventory_name").notNull(), // Test/envanter adı
+  appliedDate: text("applied_date").notNull(),
+  results: text("results").notNull(), // JSON formatında sonuçlar
+  summary: text("summary"), // Özet değerlendirme
+  appliedBy: integer("applied_by").notNull(), // Uygulayan PDR uzmanı
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertInventoryResultSchema = createInsertSchema(inventoryResults).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Güçlü Yönler ve Gelişim Alanları tablosu
+export const studentStrengthsWeaknesses = sqliteTable("student_strengths_weaknesses", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(),
+  type: text("type").notNull(), // "güçlü_yön", "gelişim_alanı"
+  description: text("description").notNull(),
+  addedBy: integer("added_by").notNull(), // Kim ekledi (user id)
+  addedByRole: text("added_by_role").notNull(), // "pdr", "öğretmen", "öğrenci"
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertStudentStrengthsWeaknessesSchema = createInsertSchema(studentStrengthsWeaknesses).omit({
+  id: true,
+  createdAt: true,
+});
+
+// İlgi ve Yetenek Alanları tablosu
+export const studentInterests = sqliteTable("student_interests", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(),
+  interestArea: text("interest_area").notNull(), // İlgi alanı
+  proficiencyLevel: text("proficiency_level"), // Yeterlilik seviyesi
+  addedBy: integer("added_by").notNull(),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertStudentInterestSchema = createInsertSchema(studentInterests).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Yaşam Olayları tablosu (Yüksek Gizlilik)
+export const significantLifeEvents = sqliteTable("significant_life_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(),
+  eventDate: text("event_date").notNull(),
+  eventType: text("event_type").notNull(), // "aile_sorunu", "travma", "kayıp" vs.
+  description: text("description").notNull(),
+  confidentialityLevel: text("confidentiality_level").default("yüksek").notNull(),
+  addedBy: integer("added_by").notNull(), // Sadece PDR uzmanları ekleyebilir
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertSignificantLifeEventSchema = createInsertSchema(significantLifeEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+// BRYS - Kariyer Planlama
+// Öğrenci Hedefleri tablosu
+export const studentGoals = sqliteTable("student_goals", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(),
+  goalType: text("goal_type").notNull(), // "kısa_vade", "orta_vade", "uzun_vade"
+  goal: text("goal").notNull(),
+  targetDate: text("target_date"),
+  status: text("status").default("aktif").notNull(), // "aktif", "tamamlandı", "iptal"
+  progress: integer("progress").default(0), // Yüzde ilerleme
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertStudentGoalSchema = createInsertSchema(studentGoals).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Meslek İnceleme Kayıtları tablosu
+export const careerExplorations = sqliteTable("career_explorations", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(),
+  professionName: text("profession_name").notNull(),
+  exploredDate: text("explored_date").notNull(),
+  isFavorite: integer("is_favorite").default(0),
+  notes: text("notes"),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertCareerExplorationSchema = createInsertSchema(careerExplorations).omit({
+  id: true,
+  createdAt: true,
+});
+
+// BRYS - Anket ve Envanter Yönetimi
+// Anket Şablonları tablosu
+export const surveyTemplates = sqliteTable("survey_templates", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  description: text("description"),
+  questions: text("questions").notNull(), // JSON formatında sorular
+  isStandard: integer("is_standard").default(0), // MEB onaylı mı?
+  createdBy: integer("created_by").notNull(),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertSurveyTemplateSchema = createInsertSchema(surveyTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Anket Uygulamaları tablosu
+export const surveyApplications = sqliteTable("survey_applications", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  surveyTemplateId: integer("survey_template_id").notNull(),
+  appliedToClass: text("applied_to_class"), // Sınıf
+  appliedToStudents: text("applied_to_students"), // JSON formatında öğrenci ID'leri
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date"),
+  isActive: integer("is_active").default(1),
+  createdBy: integer("created_by").notNull(),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertSurveyApplicationSchema = createInsertSchema(surveyApplications).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Anket Cevapları tablosu
+export const surveyResponses = sqliteTable("survey_responses", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  surveyApplicationId: integer("survey_application_id").notNull(),
+  studentId: integer("student_id").notNull(),
+  responses: text("responses").notNull(), // JSON formatında cevaplar
+  submittedAt: text("submitted_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertSurveyResponseSchema = createInsertSchema(surveyResponses).omit({
+  id: true,
+  submittedAt: true,
+});
+
+// Tip tanımlamaları - Yeni tablolar için
+export type StudentGrade = typeof studentGrades.$inferSelect;
+export type InsertStudentGrade = z.infer<typeof insertStudentGradeSchema>;
+
+export type AttendanceRecord = typeof attendanceRecords.$inferSelect;
+export type InsertAttendanceRecord = z.infer<typeof insertAttendanceRecordSchema>;
+
+export type ExamResult = typeof examResults.$inferSelect;
+export type InsertExamResult = z.infer<typeof insertExamResultSchema>;
+
+export type InventoryResult = typeof inventoryResults.$inferSelect;
+export type InsertInventoryResult = z.infer<typeof insertInventoryResultSchema>;
+
+export type StudentStrengthsWeaknesses = typeof studentStrengthsWeaknesses.$inferSelect;
+export type InsertStudentStrengthsWeaknesses = z.infer<typeof insertStudentStrengthsWeaknessesSchema>;
+
+export type StudentInterest = typeof studentInterests.$inferSelect;
+export type InsertStudentInterest = z.infer<typeof insertStudentInterestSchema>;
+
+export type SignificantLifeEvent = typeof significantLifeEvents.$inferSelect;
+export type InsertSignificantLifeEvent = z.infer<typeof insertSignificantLifeEventSchema>;
+
+export type StudentGoal = typeof studentGoals.$inferSelect;
+export type InsertStudentGoal = z.infer<typeof insertStudentGoalSchema>;
+
+export type CareerExploration = typeof careerExplorations.$inferSelect;
+export type InsertCareerExploration = z.infer<typeof insertCareerExplorationSchema>;
+
+export type SurveyTemplate = typeof surveyTemplates.$inferSelect;
+export type InsertSurveyTemplate = z.infer<typeof insertSurveyTemplateSchema>;
+
+export type SurveyApplication = typeof surveyApplications.$inferSelect;
+export type InsertSurveyApplication = z.infer<typeof insertSurveyApplicationSchema>;
+
+export type SurveyResponse = typeof surveyResponses.$inferSelect;
+export type InsertSurveyResponse = z.infer<typeof insertSurveyResponseSchema>;

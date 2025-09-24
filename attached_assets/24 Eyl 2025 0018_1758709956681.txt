@@ -1,0 +1,75 @@
+Elbette, bir yazılım mühendisine doğrudan sunulabilecek, tüm detayları ve modüller arası ilişkileri içeren, Bütünleşik Rehberlik Yönetim Sistemi (BRYS) için kapsamlı bir proje tarifini aşağıda bulabilirsiniz.
+PROJE ADI: Bütünleşik Rehberlik Yönetim Sistemi (BRYS)
+Proje Vizyonu: Okuldaki her öğrencinin akademik, sosyal, duygusal ve kariyer gelişimini 360 derece izleyen, rehber öğretmenlerin veri odaklı ve proaktif çalışmasını sağlayan, tüm paydaşlar (öğrenci, öğretmen, veli, yönetici) arasında etkili bir köprü kuran merkezi bir yazılım platformu oluşturmak.
+Hedef Kitle: Okul Psikolojik Danışmanları ve Rehber Öğretmenleri (PDR), Okul Yönetimi, Sınıf Rehber Öğretmenleri, Veliler, Öğrenciler.
+Temel Teknolojik Gereksinimler:
+ * Platform: Web tabanlı (Tüm cihazlardan erişilebilir). Opsiyonel olarak mobil uygulama (Veli ve Öğrenci için).
+ * Veritabanı: Güvenli, ölçeklenebilir ve ilişkisel bir veritabanı (örn: PostgreSQL, MySQL).
+ * Güvenlik: KVKK (Kişisel Verilerin Korunması Kanunu) ile tam uyumlu, rol bazlı erişim kontrolü, veri şifreleme ve düzenli güvenlik denetimleri.
+ * Entegrasyon: e-Okul (API aracılığıyla öğrenci temel bilgileri, notlar ve devamsızlık verilerinin senkronizasyonu için), MEBBİS, YÖK Atlas.
+ANA MODÜL: ÖĞRENCİ PROFİL SAYFASI (SİSTEMİN KALBİ)
+Bu sayfa, bir öğrenciyle ilgili her türlü bilginin toplandığı, analiz edildiği ve görüntülendiği dinamik bir "dijital dosya" olmalıdır. Arayüzü kullanıcı dostu ve sezgisel olmalıdır. Sayfa, sekmeler veya genişletilebilir kartlar şeklinde tasarlanabilir.
+1. Kimlik ve Veli Bilgileri Sekmesi:
+ * Fotoğraf: Öğrencinin güncel fotoğrafı.
+ * Temel Bilgiler: Ad, Soyad, TC Kimlik No, Okul No, Sınıf/Şube, Doğum Tarihi, Cinsiyet. (e-Okul'dan senkronize).
+ * İletişim Bilgileri: Öğrenci ve Veli Adres, Telefon, E-posta.
+ * Veli Bilgileri: Anne-Baba adı, mesleği, eğitim durumu, iletişim bilgileri. Kardeş sayısı ve bilgisi. Aile yapısı (birlikte, ayrı vb.).
+ * Acil Durum Kontağı: Acil durumda ulaşılacak kişi ve telefon numarası.
+2. Akademik Gelişim Sekmesi ("Akademik Röntgen"):
+ * Genel Bakış: Güncel yıl sonu başarı puanı, genel not ortalaması.
+ * Ders Başarı Grafiği: Tüm okul hayatı boyunca ders bazında (Matematik, Türkçe vb.) notlarının çizgi grafiği. Bu grafik, notlardaki ani düşüşleri veya istikrarlı başarıyı görsel olarak anında gösterir. (Veri e-Okul'dan çekilir).
+ * Devamsızlık Takvimi: Yıl içindeki özürlü/özürsüz devamsızlıkların takvim üzerinde işaretlenmesi ve özet bilgisi.
+ * Sınav Sonuçları: Okulda yapılan deneme sınavlarının (LGS/YKS) sonuçları, netleri ve puan türlerine göre sıralamaları.
+ * Akademik Uyarı Sistemi: Sistemin otomatik olarak belirli kurallara göre (Örn: "Bir öğrencinin notu bir önceki yıla göre 10 puandan fazla düştüyse" veya "Matematik notu iki dönem üst üste 50'nin altındaysa") PDR uzmanının ana ekranına uyarı düşürmesi.
+3. Psiko-Sosyal Gelişim Sekmesi ("Beni Tanı"):
+ * Uygulanan Envanterler ve Sonuçları:
+   * Uygulanan her testin (Sınav Kaygısı Ölçeği, Mesleki Eğilim Envanteri vb.) adı, tarihi ve özet sonucu.
+   * Sonuca tıklandığında, öğrencinin cevaplarını ve testin detaylı raporunu gösteren bir pencere açılmalıdır.
+ * Güçlü Yönler ve Gelişim Alanları: PDR uzmanı, sınıf öğretmeni ve öğrencinin kendisi tarafından doldurulabilen metin kutuları. (Örn: Güçlü Yön: "Liderlik becerisi yüksek", Gelişim Alanı: "Zaman yönetimi becerisi").
+ * İlgi ve Yetenek Alanları: Öğrencinin beyanına ve gözlemlere dayalı olarak etiket bulutu şeklinde (Örn: Piyano, Robotik Kodlama, Futbol, Resim).
+ * Sosyal İlişkiler (Sosyometri): Uygulanan sosyometri sonuçlarının görsel bir şema ile gösterimi (kimin lider olduğu, kimin dışlandığı vb.).
+ * Önemli Yaşam Olayları (Yüksek Gizlilikli Alan): Sadece PDR uzmanının görebileceği, şifreli bir alan. Ailevi sorunlar, travmalar, kayıplar gibi hassas bilgilerin tarih ve kısa notlarla kaydedildiği bölüm.
+4. Kariyer Planlama Sekmesi ("Gelecek Pusulası"):
+ * Mesleki Eğilimler: Kariyer envanterlerinden çıkan sonuçlara göre önerilen meslek grupları.
+ * Hedeflerim: Öğrencinin kendisinin belirlediği kısa, orta ve uzun vadeli hedefler. (Örn: Kısa Vade: "Bu dönem matematik notumu 70'e çıkarmak", Uzun Vade: "İTÜ Bilgisayar Mühendisliği'ni kazanmak").
+ * Alan/Ders Seçimi (Lise): Öğrencinin lise için seçmek istediği alan (Sayısal, Eşit Ağırlık vb.) ve nedenleri. Sistem, öğrencinin ders notlarına göre bu alan için uygunluğunu değerlendirip bir "öneri skoru" sunabilir.
+ * İncelenen Meslekler: Öğrencinin sistemdeki meslek havuzundan incelediği ve "favorilerine eklediği" mesleklerin listesi.
+5. Görüşme ve Gözlem Kayıtları Sekmesi ("PDR Günlüğü"):
+ * Tüm Görüşmeler: Yapılan tüm bireysel/grup görüşmelerinin ve veli toplantılarının tarih sırasına göre listesi.
+ * Her kayıtta şu alanlar olmalı:
+   * Görüşme Tarihi ve Türü: (Bireysel Öğrenci, Veli, Grup Rehberliği).
+   * Görüşme Nedeni: (Öğretmen Yönlendirmesi, Öğrenci Talebi, Risk Tespiti vb.).
+   * Görüşme Özeti: (PDR uzmanının notları).
+   * Alınan Kararlar/Sonraki Adımlar: (RAM'a yönlendirilecek, bir sonraki görüşme tarihi vb.).
+   * Gizlilik Seviyesi: (Sadece Ben, PDR Zümresi, Okul Yönetimi).
+ * Sınıf Öğretmeni Gözlem Notları: Sınıf öğretmenlerinin, öğrenci hakkında sisteme kısa notlar düşebileceği bir alan. Bu notlar PDR uzmanının onayından sonra profile eklenir.
+DİĞER MODÜLLER VE İŞLEVLERİ
+2. Randevu ve Takvim Modülü:
+ * Rehber öğretmenin haftalık takvimi.
+ * Öğrenci ve veliler için online randevu talep etme sistemi.
+ * Yaklaşan görüşmeler için otomatik SMS/E-posta hatırlatmaları.
+3. Anket ve Envanter Yönetim Modülü:
+ * Hazır Test Kütüphanesi: MEB tarafından onaylanmış standart test ve ölçeklerin dijital formları.
+ * Anket Sihirbazı: PDR uzmanının sürükle-bırak yöntemiyle kendi anketlerini (çoktan seçmeli, açık uçlu vb.) oluşturabilmesi.
+ * Uygulama: Anketlerin seçilen sınıflara veya öğrencilere online olarak atanması. Öğrenciler kendi ekranlarından bu anketleri doldurur.
+ * Otomatik Raporlama: Cevaplar anında sisteme düşer. Sistem, sınıf ve okul geneli için sonuçları otomatik olarak analiz eder, frekans ve yüzde dağılımlarını grafiklerle (pasta, sütun) sunar.
+4. Grup Rehberliği ve Yıllık Plan Modülü:
+ * Yıllık Çerçeve Planı: Yıllık planın sisteme yüklenmesi. Planlanan her etkinlik (seminer, sınıf etkinliği vb.) takvime işlenir.
+ * Etkinlik Bankası: Farklı konularda (Zorbalıkla Mücadele, Teknoloji Bağımlılığı vb.) kullanıma hazır sunumlar, videolar ve çalışma yaprakları.
+ * Uygulama Raporu: Bir etkinlik yapıldığında, PDR uzmanı sisteme girerek "yapıldı" olarak işaretler, katılan öğrenci sayısını ve kısa bir değerlendirme notu ekler. Bu bilgiler, yıl sonu raporu için otomatik olarak toplanır.
+5. Raporlama ve Analiz Modülü (Yönetici Ekranı):
+ * Dashboard (Gösterge Paneli): Okul PDR hizmetlerinin anlık fotoğrafı. (Örn: "Bu ay yapılan görüşme sayısı", "En sık görüşülen 3 konu", "Risk grubundaki öğrenci sayısı").
+ * Risk Haritası Oluşturucu: PDR uzmanı tarafından belirlenen kriterlere göre (Örn: "Devamsızlığı 10 günü geçen" VE "Yıl sonu notu 50'nin altında olan" VE "Problem Tarama Listesinde yüksek puan alan" öğrencileri listele) dinamik raporlar oluşturur.
+ * Otomatik Faaliyet Raporu: Dönem veya yıl sonunda, sistemde kayıtlı tüm verilerden (yapılan görüşme, anket, seminer sayıları vb.) MEB formatına uygun resmi faaliyet raporunu tek tıkla oluşturur.
+6. Duyuru ve İletişim Modülü:
+ * Veli ve öğrencilere (sınıf veya okul bazında) SMS veya sistem içi bildirim gönderme.
+ * Rehberlik panosu için hazırlanmış dijital broşürlerin, bültenlerin ve makalelerin yayınlandığı bir bölüm.
+YAZILIM MÜHENDİSİNE NOTLAR
+ * Kullanıcı Rolleri ve Yetkileri: Sistemde en az 4 farklı kullanıcı rolü olmalıdır:
+   * Süper Yönetici (PDR Uzmanı): Tüm modüllere tam erişim.
+   * Okul Yöneticisi: Öğrenci profillerinin kişisel olmayan (görüşme notları hariç) kısımlarını ve genel okul raporlarını görebilir.
+   * Sınıf Rehber Öğretmeni: Sadece kendi sınıfındaki öğrencilerin akademik ve temel bilgilerini görür, gözlem notu ekleyebilir.
+   * Veli/Öğrenci: Sadece kendi profilini/çocuğunun profilini (PDR notları hariç), randevu sistemini ve duyuruları görür.
+ * Kullanıcı Arayüzü (UI) ve Kullanıcı Deneyimi (UX): Arayüzün karmaşık olmaması kritik öneme sahiptir. Bilgiler kolayca bulunmalı, grafikler ve renk kodları (örneğin riskli durumlar için kırmızı uyarılar) etkili bir şekilde kullanılmalıdır.
+ * Performans: Sistem on binlerce öğrenci verisini ve on binlerce kaydı hızlı bir şekilde işleyebilmelidir. Raporlama işlemleri sunucuyu yormamalıdır.
+Bu tarif, hayalinizdeki programın tüm iskeletini ve işlevselliğini ortaya koymaktadır. Yazılım mühendisi bu belgeyi bir yol haritası olarak kullanarak projeyi geliştirmeye başlayabilir.
