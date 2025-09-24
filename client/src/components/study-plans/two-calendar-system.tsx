@@ -42,7 +42,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Play,
-  Eye
+  Eye,
+  BookOpen
 } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -92,11 +93,13 @@ const DAYS_OF_WEEK = [
   { value: 7, label: "Pazar" },
 ];
 
-const TIME_SLOTS = [
-  "08:00", "09:00", "10:00", "11:00", "12:00",
-  "13:00", "14:00", "15:00", "16:00", "17:00",
-  "18:00", "19:00", "20:00", "21:00", "22:00"
-];
+// 30 dakikalık aralıklarla saat dilimleri (07:00 - 24:00)
+const TIME_SLOTS = Array.from({ length: 34 }, (_, i) => {
+  const totalMinutes = 7 * 60 + i * 30; // 07:00'dan başla, 30dk ekle
+  const hours = Math.floor(totalMinutes / 60) % 24;
+  const minutes = totalMinutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+});
 
 export default function TwoCalendarSystem({ studentId, courses, subjectProgress }: TwoCalendarSystemProps) {
   const { toast } = useToast();
@@ -104,6 +107,10 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
   const [editingSlot, setEditingSlot] = useState<WeeklyStudySlot | null>(null);
   const [isAutoFillDialogOpen, setIsAutoFillDialogOpen] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
+  
+  // Drag & Drop state
+  const [draggedCourse, setDraggedCourse] = useState<Course | null>(null);
+  const [draggedSlot, setDraggedSlot] = useState<WeeklyStudySlot | null>(null);
 
   // Haftalık slotları getir
   const { data: weeklySlots = [], isLoading: isSlotsLoading } = useQuery<WeeklyStudySlot[]>({
@@ -261,6 +268,132 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
     }
   };
 
+  // Drag & Drop handlers
+  const handleCourseDragStart = (e: React.DragEvent, course: Course) => {
+    setDraggedCourse(course);
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
+  const handleSlotDragStart = (e: React.DragEvent, slot: WeeklyStudySlot) => {
+    setDraggedSlot(slot);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = draggedCourse ? "copy" : "move";
+  };
+
+  const handleCellDrop = async (e: React.DragEvent, dayOfWeek: number, timeSlot: string) => {
+    e.preventDefault();
+    
+    const nextTimeSlot = TIME_SLOTS[TIME_SLOTS.indexOf(timeSlot) + 1] || "23:59";
+    
+    if (draggedCourse) {
+      // Yeni slot oluştur
+      if (hasSlotInTimeRange(dayOfWeek, timeSlot, nextTimeSlot)) {
+        toast({
+          title: "Çakışma Uyarısı",
+          description: "Bu saat aralığında zaten bir slot var!",
+          variant: "destructive",
+        });
+        setDraggedCourse(null);
+        return;
+      }
+
+      const newSlotData: WeeklySlotFormValues = {
+        studentId,
+        courseId: draggedCourse.id,
+        dayOfWeek,
+        startTime: timeSlot,
+        endTime: nextTimeSlot,
+        notes: "",
+      };
+
+      slotMutation.mutate(newSlotData);
+      setDraggedCourse(null);
+    } else if (draggedSlot) {
+      // Mevcut slotu taşı
+      if (draggedSlot.dayOfWeek !== dayOfWeek || draggedSlot.startTime !== timeSlot) {
+        // Orijinal duration'ı hesapla ve koru
+        const originalStartTime = draggedSlot.startTime;
+        const originalEndTime = draggedSlot.endTime;
+        const startHour = parseInt(originalStartTime.split(':')[0]);
+        const startMinute = parseInt(originalStartTime.split(':')[1]);
+        const endHour = parseInt(originalEndTime.split(':')[0]);
+        const endMinute = parseInt(originalEndTime.split(':')[1]);
+        const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+        
+        // Yeni end time'ı hesapla (duration koruyarak) ve same-day clamp
+        const newStartHour = parseInt(timeSlot.split(':')[0]);
+        const newStartMinute = parseInt(timeSlot.split(':')[1]);
+        const newStartTotalMinutes = newStartHour * 60 + newStartMinute;
+        const newEndTotalMinutes = newStartTotalMinutes + durationMinutes;
+        
+        // Same-day clamp - midnight'ı geçmesin (23:59'a kadar)
+        const maxEndMinutes = 23 * 60 + 59; // 23:59
+        
+        if (newEndTotalMinutes > maxEndMinutes) {
+          toast({
+            title: "Zaman Aşımı Uyarısı",
+            description: `Bu slot bu saate taşınamaz çünkü süre gece yarısını geçecek. En geç ${Math.floor((maxEndMinutes - durationMinutes) / 60).toString().padStart(2, '0')}:${((maxEndMinutes - durationMinutes) % 60).toString().padStart(2, '0')} saatine kadar taşınabilir.`,
+            variant: "destructive",
+          });
+          setDraggedSlot(null);
+          return;
+        }
+        
+        const clampedEndMinutes = Math.min(newEndTotalMinutes, maxEndMinutes);
+        const newEndHour = Math.floor(clampedEndMinutes / 60);
+        const newEndMinute = clampedEndMinutes % 60;
+        const newEndTime = `${newEndHour.toString().padStart(2, '0')}:${newEndMinute.toString().padStart(2, '0')}`;
+        
+        // Çakışma kontrolü (mevcut slot'u hariç tutarak)
+        if (hasSlotInTimeRange(dayOfWeek, timeSlot, newEndTime, draggedSlot.id)) {
+          toast({
+            title: "Çakışma Uyarısı", 
+            description: "Bu saat aralığında zaten bir slot var!",
+            variant: "destructive",
+          });
+          setDraggedSlot(null);
+          return;
+        }
+
+        // Explicit update mutation - slot ID ile direkt PATCH yapacağız
+        const updateMutation = async () => {
+          try {
+            const res = await apiRequest("PATCH", `/api/weekly-slots/${draggedSlot.id}`, {
+              studentId: draggedSlot.studentId,
+              courseId: draggedSlot.courseId,
+              dayOfWeek,
+              startTime: timeSlot,
+              endTime: newEndTime,
+              notes: draggedSlot.notes || "",
+            });
+            
+            if (res.ok) {
+              toast({
+                title: "Başarılı",
+                description: "Slot başarıyla taşındı",
+              });
+              queryClient.invalidateQueries({ queryKey: [`/api/students/${studentId}/weekly-slots`] });
+              queryClient.invalidateQueries({ queryKey: [`/api/students/${studentId}/weekly-total-minutes`] });
+            }
+          } catch (error: any) {
+            toast({
+              title: "Hata",
+              description: error.message || "Slot taşınırken hata oluştu",
+              variant: "destructive",
+            });
+          }
+        };
+
+        updateMutation();
+      }
+      setDraggedSlot(null);
+    }
+  };
+
   const onSlotSubmit = (data: WeeklySlotFormValues) => {
     slotMutation.mutate(data);
   };
@@ -277,6 +410,26 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
   const getSlotsByDay = (dayOfWeek: number) => {
     return weeklySlots.filter(slot => slot.dayOfWeek === dayOfWeek)
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  };
+
+  // Belirli gün ve saat için slot bul
+  const getSlotAtTime = (dayOfWeek: number, timeSlot: string) => {
+    return weeklySlots.find(slot => 
+      slot.dayOfWeek === dayOfWeek && 
+      slot.startTime <= timeSlot && 
+      slot.endTime > timeSlot
+    );
+  };
+
+  // Saat aralığındaki slotları kontrol et (belirli slot'u hariç tut)
+  const hasSlotInTimeRange = (dayOfWeek: number, startTime: string, endTime: string, excludeSlotId?: number) => {
+    return weeklySlots.some(slot =>
+      slot.dayOfWeek === dayOfWeek &&
+      slot.id !== excludeSlotId &&
+      ((slot.startTime <= startTime && slot.endTime > startTime) ||
+       (slot.startTime < endTime && slot.endTime >= endTime) ||
+       (slot.startTime >= startTime && slot.endTime <= endTime))
+    );
   };
 
   const formatMinutes = (minutes: number) => {
@@ -346,76 +499,164 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
           </TabsTrigger>
         </TabsList>
 
-        {/* TAKVİM 1: HAFTALIK İSKELET PLAN */}
+        {/* TAKVİM 1: HAFTALIK İSKELET PLAN - YENİ GRID FORMAT */}
         <TabsContent value="calendar1" className="space-y-4">
+          {/* Dersler Listesi - Sürüklenebilir */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Haftalık Çalışma Slotları</CardTitle>
-                  <CardDescription>
-                    Sabit haftalık çalışma programınızı oluşturun
-                  </CardDescription>
-                </div>
-                <Button onClick={handleCreateSlot} data-testid="button-create-slot">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Yeni Slot
-                </Button>
-              </div>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Dersler - Sürükleyip Takvime Bırakın
+              </CardTitle>
+              <CardDescription>
+                Aşağıdaki dersleri takvim grid'ine sürükleyerek haftalık planınızı oluşturun
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-                {DAYS_OF_WEEK.map((day) => (
-                  <div key={day.value} className="space-y-2">
-                    <h3 className="font-semibold text-center text-sm">
+              <div className="flex flex-wrap gap-2">
+                {courses.map((course) => (
+                  <Badge
+                    key={course.id}
+                    variant="outline"
+                    className="px-3 py-2 cursor-grab hover:bg-primary/10 border-primary/50 text-sm font-medium"
+                    draggable
+                    onDragStart={(e) => handleCourseDragStart(e, course)}
+                    data-testid={`draggable-course-${course.id}`}
+                  >
+                    📚 {course.name}
+                  </Badge>
+                ))}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleCreateSlot}
+                  className="ml-4"
+                  data-testid="button-create-slot"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Manuel Ekle
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Grid Takvim */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Haftalık Çalışma Takvimi</CardTitle>
+              <CardDescription>
+                07:00 - 24:00 arası 30 dakikalık aralıklarla. Derslerinizi sürükleyip istediğiniz saate bırakın.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <div className="min-w-[800px]">
+                {/* Header - Günler */}
+                <div className="grid grid-cols-8 gap-1 mb-2">
+                  <div className="h-12 border rounded bg-gray-50 flex items-center justify-center text-xs font-medium">
+                    Saat
+                  </div>
+                  {DAYS_OF_WEEK.map((day) => (
+                    <div 
+                      key={day.value} 
+                      className="h-12 border rounded bg-gray-50 flex items-center justify-center text-xs font-medium"
+                    >
                       {day.label}
-                    </h3>
-                    <div className="space-y-2 min-h-[200px]">
-                      {getSlotsByDay(day.value).map((slot) => {
-                        const course = getCourseById(slot.courseId);
+                    </div>
+                  ))}
+                </div>
+
+                {/* Grid - Saatler ve Slotlar */}
+                <div className="space-y-1">
+                  {TIME_SLOTS.map((timeSlot, timeIndex) => (
+                    <div key={timeSlot} className="grid grid-cols-8 gap-1">
+                      {/* Saat Sütunu */}
+                      <div className="h-8 border rounded bg-gray-50/50 flex items-center justify-center text-xs font-mono">
+                        {timeSlot}
+                      </div>
+                      
+                      {/* Gün Hücreleri */}
+                      {DAYS_OF_WEEK.map((day) => {
+                        const slot = getSlotAtTime(day.value, timeSlot);
+                        const course = slot ? getCourseById(slot.courseId) : null;
+                        
                         return (
-                          <Card 
-                            key={slot.id} 
-                            className="p-3 bg-primary/10 border-primary/20"
-                            data-testid={`slot-${slot.id}`}
+                          <div
+                            key={`${day.value}-${timeSlot}`}
+                            className={`h-8 border rounded transition-colors duration-150 ${
+                              slot 
+                                ? "bg-primary/20 border-primary/40 cursor-move" 
+                                : "bg-white hover:bg-blue-50 border-gray-200 cursor-pointer"
+                            } ${
+                              (draggedCourse || draggedSlot) ? "ring-2 ring-blue-200" : ""
+                            }`}
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleCellDrop(e, day.value, timeSlot)}
+                            onClick={() => {
+                              if (!slot && !draggedCourse && !draggedSlot) {
+                                // Manuel slot oluşturma için
+                                slotForm.setValue("dayOfWeek", day.value);
+                                slotForm.setValue("startTime", timeSlot);
+                                slotForm.setValue("endTime", TIME_SLOTS[timeIndex + 1] || "23:59");
+                                setIsSlotDialogOpen(true);
+                              }
+                            }}
+                            data-testid={`calendar-cell-${day.value}-${timeSlot}`}
                           >
-                            <div className="space-y-1">
-                              <div className="font-medium text-sm">
-                                {course?.name || "Bilinmeyen Ders"}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {slot.startTime} - {slot.endTime}
-                              </div>
-                              {slot.notes && (
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {slot.notes}
+                            {slot && (
+                              <div
+                                className="h-full w-full flex items-center justify-center text-xs font-medium text-primary bg-primary/10 rounded cursor-move"
+                                draggable
+                                onDragStart={(e) => handleSlotDragStart(e, slot)}
+                                title={`${course?.name || "Bilinmeyen"} (${slot.startTime}-${slot.endTime})`}
+                                data-testid={`slot-${slot.id}`}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <span className="truncate max-w-[60px]">
+                                    {course?.name?.substring(0, 8) || "?"}
+                                  </span>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-4 w-4 p-0 hover:bg-primary/30"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditSlot(slot);
+                                      }}
+                                      data-testid={`button-edit-slot-${slot.id}`}
+                                    >
+                                      <Edit className="h-2 w-2" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-4 w-4 p-0 hover:bg-red-200"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteSlot(slot.id);
+                                      }}
+                                      data-testid={`button-delete-slot-${slot.id}`}
+                                    >
+                                      <Trash2 className="h-2 w-2" />
+                                    </Button>
+                                  </div>
                                 </div>
-                              )}
-                              <div className="flex gap-1 mt-2">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => handleEditSlot(slot)}
-                                  data-testid={`button-edit-slot-${slot.id}`}
-                                >
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => handleDeleteSlot(slot.id)}
-                                  data-testid={`button-delete-slot-${slot.id}`}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
                               </div>
-                            </div>
-                          </Card>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+
+                {/* Yardım Metni */}
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-800">
+                    💡 <strong>Kullanım:</strong> Üstteki dersleri sürükleyip takvime bırakın, 
+                    veya boş hücrelere tıklayın. Mevcut slotları sürükleyerek taşıyabilirsiniz.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
