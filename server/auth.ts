@@ -133,18 +133,27 @@ export function setupAuth(app: Express) {
     try {
       if (!req.isAuthenticated()) return res.sendStatus(401);
       
-      const userId = (req.user as User).id;
+      const currentUser = req.user as User;
+      const userId = currentUser.id;
       const { username, fullName, role } = req.body;
       
       // Username benzersizlik kontrolü
-      if (username && username !== (req.user as User).username) {
+      if (username && username !== currentUser.username) {
         const existingUser = await storage.getUserByUsername(username);
         if (existingUser) {
           return res.status(400).json({ message: "Bu kullanıcı adı zaten alınmış" });
         }
       }
       
-      const updateData = { username, fullName, role };
+      // Role değişikliği sadece admin ve okul yönetimi yapabilir
+      let updateData: any = { username, fullName };
+      if (role && role !== currentUser.role) {
+        if (currentUser.role !== "admin" && currentUser.role !== "okul_yönetimi") {
+          return res.status(403).json({ message: "Role değiştirme yetkisi sadece yöneticilere aittir" });
+        }
+        updateData.role = role;
+      }
+      
       const updatedUser = await storage.updateUser(userId, updateData);
       
       if (!updatedUser) {
@@ -245,4 +254,81 @@ export function requireAuth(req: any, res: any, next: any) {
     return res.status(401).json({ message: "Bu işlem için giriş yapmalısınız" });
   }
   next();
+}
+
+// Role-based authorization middleware
+export function requireRole(allowedRoles: string[]) {
+  return (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Bu işlem için giriş yapmalısınız" });
+    }
+
+    const userRole = (req.user as User).role;
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({ 
+        message: "Bu işlem için yeterli yetkiniz bulunmamaktadır",
+        required: allowedRoles,
+        current: userRole
+      });
+    }
+
+    next();
+  };
+}
+
+// Admin-only authorization
+export function requireAdmin(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Bu işlem için giriş yapmalısınız" });
+  }
+
+  const userRole = (req.user as User).role;
+  if (userRole !== "admin" && userRole !== "okul_yönetimi") {
+    return res.status(403).json({ 
+      message: "Bu işlem sadece yöneticiler tarafından yapılabilir" 
+    });
+  }
+
+  next();
+}
+
+// Counseling session confidentiality check
+export function canAccessCounselingSession(userRole: string, confidentialityLevel: string, visibilityRole: string): boolean {
+  // Admin ve okul yönetimi her şeye erişebilir
+  if (userRole === "admin" || userRole === "okul_yönetimi") {
+    return true;
+  }
+
+  // PDR yönetimi çok gizli hariç her şeye erişebilir
+  if (userRole === "pdr_yönetim") {
+    return confidentialityLevel !== "çok_gizli";
+  }
+
+  // Normal PDR uzmanı - visibility role ve confidentiality level'e göre kontrol
+  if (userRole === "rehber" || userRole === "pdr") {
+    // Çok gizli kayıtlara erişim yok
+    if (confidentialityLevel === "çok_gizli") {
+      return false;
+    }
+    
+    switch (visibilityRole) {
+      case "pdr":
+        return true; // Normal, yüksek ve düşük seviyeye erişebilir (çok_gizli hariç)
+      case "pdr_yönetim":
+        return confidentialityLevel === "düşük" || confidentialityLevel === "normal";
+      case "okul_yönetimi":
+        return confidentialityLevel === "düşük";
+      case "sınıf_öğretmeni":
+        return confidentialityLevel === "düşük";
+      default:
+        return false;
+    }
+  }
+
+  // Sınıf öğretmeni sadece düşük gizlilik seviyesindeki ve kendisine görünür kayıtlara erişebilir
+  if (userRole === "sınıf_öğretmeni") {
+    return confidentialityLevel === "düşük" && visibilityRole === "sınıf_öğretmeni";
+  }
+
+  return false;
 }

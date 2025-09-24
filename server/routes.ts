@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, requireAuth } from "./auth";
+import { setupAuth, requireAuth, requireAdmin, requireRole, canAccessCounselingSession } from "./auth";
 import { 
   insertStudentSchema, 
   insertAppointmentSchema, 
@@ -126,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Öğrenci sil
-  app.delete("/api/students/:id", requireAuth, async (req, res, next) => {
+  app.delete("/api/students/:id", requireRole(["admin", "okul_yönetimi"]), async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -151,7 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Toplu öğrenci içe aktarma
-  app.post("/api/students/bulk-import", requireAuth, async (req, res, next) => {
+  app.post("/api/students/bulk-import", requireRole(["admin", "okul_yönetimi", "pdr_yönetim"]), async (req, res, next) => {
     try {
       // Veri doğrulama için şema oluştur
       const bulkImportSchema = z.object({
@@ -392,7 +392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Detaylı Raporlama API Routes =====
 
   // Öğrenci dağılımı ve detaylı öğrenci istatistikleri
-  app.get("/api/reports/student-distribution", requireAuth, async (req, res, next) => {
+  app.get("/api/reports/student-distribution", requireRole(["admin", "okul_yönetimi", "pdr_yönetim"]), async (req, res, next) => {
     try {
       // Tüm öğrencileri çek
       const students = await storage.getStudents();
@@ -578,10 +578,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rehberlik görüşmeleri istatistikleri 
-  app.get("/api/reports/counseling-sessions", requireAuth, async (req, res, next) => {
+  app.get("/api/reports/counseling-sessions", requireRole(["admin", "okul_yönetimi", "pdr_yönetim"]), async (req, res, next) => {
     try {
+      const userRole = (req.user as any).role;
       // Tüm görüşmeleri çek
-      const sessions = await storage.getCounselingSessions();
+      const allSessions = await storage.getCounselingSessions();
+      
+      // Role-based confidentiality filtering for reports
+      const sessions = allSessions.filter(session => 
+        canAccessCounselingSession(userRole, session.confidentialityLevel, session.visibilityRole)
+      );
       
       // Konu bazında görüşme sayıları
       const topicCounts: Record<string, number> = {};
@@ -931,7 +937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Veri Yedekleme ve Geri Yükleme API Routes 
   // Veri yedekleme
-  app.get("/api/backup", requireAuth, async (req, res, next) => {
+  app.get("/api/backup", requireAdmin, async (req, res, next) => {
     try {
       // Tüm veri tablolarını al
       const allData: Record<string, any> = {
@@ -991,7 +997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Veri geri yükleme (restore)
-  app.post("/api/restore", requireAuth, async (req, res, next) => {
+  app.post("/api/restore", requireAdmin, async (req, res, next) => {
     try {
       const backupData = req.body;
       
@@ -1228,6 +1234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tüm görüşme kayıtlarını getir
   app.get("/api/counseling-sessions", requireAuth, async (req, res, next) => {
     try {
+      const userRole = (req.user as any).role;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const all = req.query.all === 'true';
       
@@ -1239,9 +1246,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessions = await storage.getRecentCounselingSessions(limit);
       }
       
+      // Role-based confidentiality filtering
+      const filteredSessions = sessions.filter(session => 
+        canAccessCounselingSession(userRole, session.confidentialityLevel, session.visibilityRole)
+      );
+      
       // Her kayıt için öğrenci bilgisini ekle
       const sessionsWithStudents = await Promise.all(
-        sessions.map(async (session) => {
+        filteredSessions.map(async (session) => {
           const student = await storage.getStudent(session.studentId);
           return {
             ...session,
@@ -1263,12 +1275,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Belirli bir güne ait görüşme kayıtlarını getir
   app.get("/api/counseling-sessions/by-date/:date", requireAuth, async (req, res, next) => {
     try {
+      const userRole = (req.user as any).role;
       const date = req.params.date;
       const sessions = await storage.getCounselingSessionsByDate(date);
       
+      // Role-based confidentiality filtering
+      const filteredSessions = sessions.filter(session => 
+        canAccessCounselingSession(userRole, session.confidentialityLevel, session.visibilityRole)
+      );
+      
       // Her kayıt için öğrenci bilgisini ekle
       const sessionsWithStudents = await Promise.all(
-        sessions.map(async (session) => {
+        filteredSessions.map(async (session) => {
           const student = await storage.getStudent(session.studentId);
           return {
             ...session,
@@ -1290,9 +1308,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Öğrencinin görüşme kayıtlarını getir
   app.get("/api/students/:id/counseling-sessions", requireAuth, async (req, res, next) => {
     try {
+      const userRole = (req.user as any).role;
       const studentId = parseInt(req.params.id);
       const sessions = await storage.getCounselingSessionsByStudent(studentId);
-      res.json(sessions);
+      
+      // Role-based confidentiality filtering
+      const filteredSessions = sessions.filter(session => 
+        canAccessCounselingSession(userRole, session.confidentialityLevel, session.visibilityRole)
+      );
+      
+      res.json(filteredSessions);
     } catch (err) {
       next(err);
     }
@@ -1301,11 +1326,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tekil görüşme kaydı getir
   app.get("/api/counseling-sessions/:id", requireAuth, async (req, res, next) => {
     try {
+      const userRole = (req.user as any).role;
       const id = parseInt(req.params.id);
       const session = await storage.getCounselingSession(id);
       
       if (!session) {
         return res.status(404).json({ message: "Görüşme kaydı bulunamadı" });
+      }
+      
+      // Role-based confidentiality check
+      if (!canAccessCounselingSession(userRole, session.confidentialityLevel, session.visibilityRole)) {
+        return res.status(403).json({ message: "Bu görüşme kaydına erişim yetkiniz bulunmamaktadır" });
       }
       
       // Öğrenci bilgisini ekle
@@ -1326,7 +1357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Yeni görüşme kaydı ekle
-  app.post("/api/counseling-sessions", requireAuth, async (req, res, next) => {
+  app.post("/api/counseling-sessions", requireRole(["admin", "okul_yönetimi", "pdr_yönetim", "rehber", "pdr"]), async (req, res, next) => {
     try {
       const validatedData = insertCounselingSessionSchema.parse(req.body);
       
@@ -1355,7 +1386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Görüşme kaydını güncelle
-  app.put("/api/counseling-sessions/:id", requireAuth, async (req, res, next) => {
+  app.put("/api/counseling-sessions/:id", requireRole(["admin", "okul_yönetimi", "pdr_yönetim", "rehber", "pdr"]), async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = z.object({
@@ -1400,7 +1431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Görüşmeyi tamamla (çıkış saati ve dersi ekle)
-  app.put("/api/counseling-sessions/:id/complete", requireAuth, async (req, res, next) => {
+  app.put("/api/counseling-sessions/:id/complete", requireRole(["admin", "okul_yönetimi", "pdr_yönetim", "rehber", "pdr"]), async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = z.object({
@@ -1448,7 +1479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Görüşme kaydını sil
-  app.delete("/api/counseling-sessions/:id", requireAuth, async (req, res, next) => {
+  app.delete("/api/counseling-sessions/:id", requireRole(["admin", "okul_yönetimi", "pdr_yönetim"]), async (req, res, next) => {
     try {
       const id = parseInt(req.params.id);
       
