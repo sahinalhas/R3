@@ -22,6 +22,9 @@ import SQLiteStore from "better-sqlite3-session-store";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
 import Database from "better-sqlite3";
+// Import new repositories to unify data access
+import { studentsRepo } from "./repos/students.repo";
+import { activitiesRepo } from "./repos/activities.repo";
 
 const SqliteSessionStore = SQLiteStore(session);
 
