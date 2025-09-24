@@ -40,7 +40,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import StudentForm from "@/components/students/student-form";
 import AppointmentForm from "@/components/appointments/appointment-form";
-import StudyPlanForm from "@/components/study-plans/study-plan-form";
+import TwoCalendarSystem from "@/components/study-plans/two-calendar-system";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDate, getInitials, getStatusClass, calculateAge } from "@/lib/utils";
 import { 
@@ -65,7 +65,6 @@ export default function StudentDetailPage() {
   const { user } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddAppointmentDialogOpen, setIsAddAppointmentDialogOpen] = useState(false);
-  const [isAddStudyPlanDialogOpen, setIsAddStudyPlanDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Öğrenci bilgilerini çek
@@ -73,15 +72,36 @@ export default function StudentDetailPage() {
     queryKey: [`/api/students/${id}`],
   });
 
-  // Hata yönetimi
-  if (error) {
+  // Hata yönetimi - sadece kritik hatalar için yönlendirme yap
+  if (error && error.message.includes('404')) {
+    return (
+      <Layout title="Hata" description="Öğrenci bulunamadı">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex mb-4 items-center gap-2">
+              <AlertCircle className="h-8 w-8 text-error" />
+              <h1 className="text-xl font-bold">Öğrenci Bulunamadı</h1>
+            </div>
+            <p className="mb-4">
+              Aradığınız öğrenci bulunamadı veya erişim izniniz yok.
+            </p>
+            <Button onClick={() => navigate("/students")}>
+              <ChevronLeft className="mr-2 h-4 w-4" />
+              Öğrenci Listesine Dön
+            </Button>
+          </CardContent>
+        </Card>
+      </Layout>
+    );
+  }
+
+  // Diğer hatalar için sadece toast göster, sayfayı render etmeye devam et
+  if (error && !error.message.includes('404')) {
     toast({
-      title: "Hata",
-      description: "Öğrenci bilgileri yüklenemedi",
+      title: "Uyarı",
+      description: "Bazı veriler yüklenirken sorun oluştu: " + error.message,
       variant: "destructive",
     });
-    navigate("/students");
-    return null;
   }
 
   // Öğrenci randevularını çek
@@ -174,37 +194,6 @@ export default function StudentDetailPage() {
     }
   };
   
-  // Çalışma planı ekleme mutation
-  const addStudyPlanMutation = useMutation({
-    mutationFn: async (studyPlan: InsertStudyPlan) => {
-      const res = await apiRequest("POST", "/api/study-plans", studyPlan);
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Başarılı",
-        description: "Çalışma planı başarıyla oluşturuldu",
-      });
-      setIsAddStudyPlanDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/students/${id}/study-plans`] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Hata",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-  
-  const handleAddStudyPlan = (data: Partial<InsertStudyPlan>) => {
-    if (student) {
-      addStudyPlanMutation.mutate({
-        ...data,
-        studentId: student.id,
-      } as InsertStudyPlan);
-    }
-  };
 
   // Tablo sütunları - Randevular için
   const appointmentColumns = [
@@ -680,14 +669,6 @@ export default function StudentDetailPage() {
                         <Clock8 className="mr-2 h-5 w-5 text-primary" />
                         Çalışma Planları
                       </h3>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setIsAddStudyPlanDialogOpen(true)}
-                      >
-                        <Clock8 className="mr-2 h-4 w-4" />
-                        Plan Oluştur
-                      </Button>
                     </div>
                     <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
                       <CardContent className="pt-6">
@@ -1160,178 +1141,25 @@ export default function StudentDetailPage() {
                 </Card>
               </TabsContent>
               
-              {/* Çalışma Planı Sekmesi */}
+              {/* Çalışma Planı Sekmesi - Yeni İki Takvimli Sistem */}
               <TabsContent value="study-plans">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center mb-4">
                   <h3 className="flex items-center text-lg font-medium">
                     <Clock8 className="mr-2 h-5 w-5 text-primary" />
-                    Çalışma Planı
+                    İki Takvimli Çalışma Planı Sistemi
                   </h3>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setIsAddStudyPlanDialogOpen(true)}
-                  >
-                    <Clock8 className="mr-2 h-4 w-4" />
-                    Plan Oluştur
-                  </Button>
                 </div>
 
-                {isStudyPlansLoading ? (
+                {courses && subjectProgress ? (
+                  <TwoCalendarSystem
+                    studentId={student.id}
+                    courses={courses}
+                    subjectProgress={subjectProgress}
+                  />
+                ) : (
                   <div className="flex justify-center items-center h-40">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
                   </div>
-                ) : studyPlans && studyPlans.length > 0 ? (
-                  <div className="space-y-4">
-                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
-                      <CardHeader>
-                        <CardTitle className="text-lg">Haftalık Çalışma Takvimi</CardTitle>
-                        <CardDescription>
-                          Planlanan çalışma saatleri
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          {studyPlans.map((plan) => {
-                            const course = courses?.find(c => c.id === plan.courseId);
-                            return (
-                              <div key={plan.id} className="flex flex-col p-3 border rounded-lg">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                      <BookOpen className="h-5 w-5 text-primary" />
-                                    </div>
-                                    <div>
-                                      <h4 className="font-medium">{course?.name || 'Tanımlanmamış Ders'}</h4>
-                                      <p className="text-sm text-muted-foreground">
-                                        {formatDate(plan.date)} · {plan.startTime} - {plan.endTime}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={async () => {
-                                      try {
-                                        // Plana ait konuları yükleme
-                                        const response = await fetch(`/api/study-plans/${plan.id}/subjects`);
-                                        const subjects = await response.json();
-                                        
-                                        if (subjects && subjects.length > 0) {
-                                          toast({
-                                            title: "Plan Konuları",
-                                            description: `${subjects.length} konu planlanmış`,
-                                          });
-                                        } else {
-                                          // Konuları oluştur
-                                          const generateResponse = await fetch(`/api/study-plans/${plan.id}/generate-subjects`, {
-                                            method: 'POST'
-                                          });
-                                          const generatedSubjects = await generateResponse.json();
-                                          toast({
-                                            title: "Konu Planlaması",
-                                            description: `${generatedSubjects.length} konu planlandı`,
-                                          });
-                                        }
-                                      } catch (error) {
-                                        console.error("Konu planları yüklenirken hata:", error);
-                                        toast({
-                                          title: "Hata",
-                                          description: "Konu planları yüklenirken bir hata oluştu",
-                                          variant: "destructive"
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    <ListChecks className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                                
-                                {/* Plan Detay Kısmı - Açılabilir/Kapanabilir veya Her zaman gösterilen modal olabilir */}
-                                <div className="mt-2 text-sm text-muted-foreground">
-                                  <Button 
-                                    variant="link" 
-                                    size="sm" 
-                                    className="p-0 h-auto"
-                                    onClick={async () => {
-                                      try {
-                                        // Plana ait konuları yükle
-                                        const response = await fetch(`/api/study-plans/${plan.id}/subjects`);
-                                        const subjects = await response.json();
-                                        
-                                        if (subjects && subjects.length > 0) {
-                                          toast({
-                                            title: "Plan Konuları",
-                                            description: `Bu planda ${subjects.length} konu çalışması planlanmış. Konu İlerlemesi sekmesinden takip edebilirsiniz.`,
-                                          });
-                                        } else {
-                                          toast({
-                                            title: "Bilgi",
-                                            description: "Bu plan için henüz konu planlaması yapılmamış. Konuları görmek için yenileyin.",
-                                          });
-                                        }
-                                      } catch (error) {
-                                        console.error("Konu planları yüklenirken hata:", error);
-                                      }
-                                    }}
-                                  >
-                                    Konuları Göster
-                                  </Button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
-                      <CardHeader>
-                        <CardTitle className="text-lg">Bu Haftanın İstatistikleri</CardTitle>
-                        <CardDescription>
-                          Toplam çalışma süreleri ve tamamlanan konular
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <h4 className="font-medium">Toplam Çalışma Süresi</h4>
-                              <p className="text-2xl font-bold">
-                                {studyPlans.reduce((acc, plan) => {
-                                  const startTime = plan.startTime.split(':').map(Number);
-                                  const endTime = plan.endTime.split(':').map(Number);
-                                  const startMinutes = startTime[0] * 60 + startTime[1];
-                                  const endMinutes = endTime[0] * 60 + endTime[1];
-                                  return acc + (endMinutes - startMinutes);
-                                }, 0) / 60} saat
-                              </p>
-                            </div>
-                            <div>
-                              <h4 className="font-medium">Planlanan Ders Sayısı</h4>
-                              <p className="text-2xl font-bold">{studyPlans.length}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : (
-                  <Card className="border-0 shadow-card hover:shadow-card-hover transition-shadow">
-                    <CardContent className="flex flex-col items-center justify-center py-12">
-                      <Clock8 className="h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Henüz çalışma planı bulunmuyor</h3>
-                      <p className="text-muted-foreground text-center mb-6">
-                        Öğrencinin haftalık çalışma planı oluşturmak için "Plan Oluştur" düğmesine tıklayın.
-                      </p>
-                      <Button 
-                        variant="outline"
-                        onClick={() => setIsAddStudyPlanDialogOpen(true)}
-                      >
-                        <Clock8 className="mr-2 h-4 w-4" />
-                        Plan Oluştur
-                      </Button>
-                    </CardContent>
-                  </Card>
                 )}
               </TabsContent>
 
@@ -1469,28 +1297,6 @@ export default function StudentDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Study Plan Dialog */}
-      {courses && (
-        <Dialog
-          open={isAddStudyPlanDialogOpen}
-          onOpenChange={setIsAddStudyPlanDialogOpen}
-        >
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Çalışma Planı Oluştur</DialogTitle>
-            </DialogHeader>
-            <StudyPlanForm
-              courses={courses}
-              defaultValues={{
-                studentId: student.id,
-                date: selectedDate,
-              }}
-              onSubmit={handleAddStudyPlan}
-              isLoading={addStudyPlanMutation.isPending}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
     </Layout>
   );
 }

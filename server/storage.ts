@@ -9,6 +9,7 @@ import {
   courses, type Course, type InsertCourse,
   courseSubjects, type CourseSubject, type InsertCourseSubject,
   studyPlans, type StudyPlan, type InsertStudyPlan,
+  weeklyStudySlots, type WeeklyStudySlot, type InsertWeeklyStudySlot,
   subjectProgress, type SubjectProgress, type InsertSubjectProgress,
   studyPlanSubjects, type StudyPlanSubject, type InsertStudyPlanSubject,
   schoolInfo, type SchoolInfo, type InsertSchoolInfo,
@@ -137,6 +138,32 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: number, userId?: number): Promise<boolean>;
   markAllNotificationsAsRead(userId?: number): Promise<number>;
+  
+  // Haftalık Çalışma Slotları işlemleri (Takvim 1)
+  getWeeklySlotsByStudent(studentId: number): Promise<WeeklyStudySlot[]>;
+  getWeeklySlotsSummary(studentId: number): Promise<{ totalMinutes: number }>;
+  createWeeklySlot(slot: InsertWeeklyStudySlot): Promise<WeeklyStudySlot>;
+  updateWeeklySlot(id: number, data: Partial<InsertWeeklyStudySlot>): Promise<WeeklyStudySlot | undefined>;
+  deleteWeeklySlot(id: number): Promise<boolean>;
+  getWeeklyTotalMinutes(studentId: number): Promise<number>;
+  checkSlotConflict(studentId: number, dayOfWeek: number, startTime: string, endTime: string, excludeId?: number): Promise<boolean>;
+  
+  // Otomatik Konu Yerleştirme işlemleri (Takvim 2)
+  autoFillTopics(studentId: number, startDate: string, endDate: string, opts?: { dryRun?: boolean }): Promise<{
+    success: boolean;
+    message: string;
+    filledSlots?: Array<{
+      date: string;
+      slotId: number;
+      courseId: number;
+      subjects: Array<{
+        subjectId: number;
+        name: string;
+        allocatedMinutes: number;
+      }>;
+    }>;
+    errors?: string[];
+  }>;
   
   // Session store
   sessionStore: any;
@@ -1224,6 +1251,314 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error(`Tüm bildirimler okundu olarak işaretlenirken hata: ${error}`);
       return 0;
+    }
+  }
+
+  // Haftalık Çalışma Slotları işlemleri (Takvim 1)
+  async getWeeklySlotsByStudent(studentId: number): Promise<WeeklyStudySlot[]> {
+    try {
+      return await db.select()
+        .from(weeklyStudySlots)
+        .where(eq(weeklyStudySlots.studentId, studentId))
+        .orderBy(weeklyStudySlots.dayOfWeek, weeklyStudySlots.startTime);
+    } catch (error) {
+      console.error(`Haftalık slotlar alınırken hata: ${error}`);
+      return [];
+    }
+  }
+
+  async getWeeklySlotsSummary(studentId: number): Promise<{ totalMinutes: number }> {
+    try {
+      const slots = await this.getWeeklySlotsByStudent(studentId);
+      const totalMinutes = slots.reduce((total, slot) => {
+        const startTime = slot.startTime.split(':').map(Number);
+        const endTime = slot.endTime.split(':').map(Number);
+        const startMinutes = startTime[0] * 60 + startTime[1];
+        const endMinutes = endTime[0] * 60 + endTime[1];
+        return total + (endMinutes - startMinutes);
+      }, 0);
+      
+      return { totalMinutes };
+    } catch (error) {
+      console.error(`Haftalık slot özeti alınırken hata: ${error}`);
+      return { totalMinutes: 0 };
+    }
+  }
+
+  async createWeeklySlot(slot: InsertWeeklyStudySlot): Promise<WeeklyStudySlot> {
+    try {
+      // Çakışma kontrolü
+      const hasConflict = await this.checkSlotConflict(
+        slot.studentId, 
+        slot.dayOfWeek, 
+        slot.startTime, 
+        slot.endTime
+      );
+      
+      if (hasConflict) {
+        throw new Error("Bu zaman diliminde başka bir çalışma slotu mevcut");
+      }
+
+      const [newSlot] = await db.insert(weeklyStudySlots)
+        .values(slot)
+        .returning();
+      
+      return newSlot;
+    } catch (error) {
+      console.error(`Haftalık slot oluşturulurken hata: ${error}`);
+      throw error;
+    }
+  }
+
+  async updateWeeklySlot(id: number, data: Partial<InsertWeeklyStudySlot>): Promise<WeeklyStudySlot | undefined> {
+    try {
+      // Eğer zaman bilgileri güncelleniyor ise çakışma kontrolü yap
+      if (data.dayOfWeek !== undefined || data.startTime !== undefined || data.endTime !== undefined) {
+        const currentSlot = await db.select()
+          .from(weeklyStudySlots)
+          .where(eq(weeklyStudySlots.id, id))
+          .limit(1);
+        
+        if (currentSlot.length === 0) {
+          throw new Error("Güncellenecek slot bulunamadı");
+        }
+
+        const slot = currentSlot[0];
+        const hasConflict = await this.checkSlotConflict(
+          slot.studentId,
+          data.dayOfWeek ?? slot.dayOfWeek,
+          data.startTime ?? slot.startTime,
+          data.endTime ?? slot.endTime,
+          id
+        );
+        
+        if (hasConflict) {
+          throw new Error("Bu zaman diliminde başka bir çalışma slotu mevcut");
+        }
+      }
+
+      const [updatedSlot] = await db.update(weeklyStudySlots)
+        .set(data)
+        .where(eq(weeklyStudySlots.id, id))
+        .returning();
+      
+      return updatedSlot;
+    } catch (error) {
+      console.error(`Haftalık slot güncellenirken hata: ${error}`);
+      throw error;
+    }
+  }
+
+  async deleteWeeklySlot(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(weeklyStudySlots)
+        .where(eq(weeklyStudySlots.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error(`Haftalık slot silinirken hata: ${error}`);
+      return false;
+    }
+  }
+
+  async getWeeklyTotalMinutes(studentId: number): Promise<number> {
+    try {
+      const slots = await this.getWeeklySlotsByStudent(studentId);
+      
+      return slots.reduce((total, slot) => {
+        const startTime = new Date(`2000-01-01 ${slot.startTime}`);
+        const endTime = new Date(`2000-01-01 ${slot.endTime}`);
+        const diffMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+        return total + diffMinutes;
+      }, 0);
+    } catch (error) {
+      console.error(`Haftalık toplam süre hesaplanırken hata: ${error}`);
+      return 0;
+    }
+  }
+
+  async checkSlotConflict(
+    studentId: number, 
+    dayOfWeek: number, 
+    startTime: string, 
+    endTime: string, 
+    excludeId?: number
+  ): Promise<boolean> {
+    try {
+      let query = db.select()
+        .from(weeklyStudySlots)
+        .where(
+          and(
+            eq(weeklyStudySlots.studentId, studentId),
+            eq(weeklyStudySlots.dayOfWeek, dayOfWeek)
+          )
+        );
+
+      const existingSlots = await query;
+      
+      const newStart = new Date(`2000-01-01 ${startTime}`);
+      const newEnd = new Date(`2000-01-01 ${endTime}`);
+      
+      for (const slot of existingSlots) {
+        if (excludeId && slot.id === excludeId) continue;
+        
+        const existingStart = new Date(`2000-01-01 ${slot.startTime}`);
+        const existingEnd = new Date(`2000-01-01 ${slot.endTime}`);
+        
+        // Çakışma kontrolü: yeni slot mevcut slotla çakışıyor mu?
+        if (newStart < existingEnd && newEnd > existingStart) {
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`Slot çakışması kontrol edilirken hata: ${error}`);
+      return true; // Hata durumunda güvenli tarafta kal
+    }
+  }
+
+  // Otomatik Konu Yerleştirme işlemleri (Takvim 2)
+  async autoFillTopics(studentId: number, startDate: string, endDate: string, opts?: { dryRun?: boolean }): Promise<{
+    success: boolean;
+    message: string;
+    filledSlots?: Array<{
+      date: string;
+      slotId: number;
+      courseId: number;
+      subjects: Array<{
+        subjectId: number;
+        name: string;
+        allocatedMinutes: number;
+      }>;
+    }>;
+    errors?: string[];
+  }> {
+    try {
+      const isDryRun = opts?.dryRun ?? false;
+      const filledSlots = [];
+      const errors = [];
+
+      // 1. Haftalık slotları al
+      const weeklySlots = await this.getWeeklySlotsByStudent(studentId);
+      if (weeklySlots.length === 0) {
+        return {
+          success: false,
+          message: "Öğrenci için haftalık çalışma slotu tanımlanmamış"
+        };
+      }
+
+      // 2. Tarih aralığındaki günleri hesapla
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const dates = [];
+      
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(new Date(d));
+      }
+
+      // 3. Her gün için slot eşleştir ve konu yerleştir
+      for (const date of dates) {
+        const dayOfWeek = date.getDay() === 0 ? 7 : date.getDay(); // Pazar=7, Pazartesi=1
+        const daySlots = weeklySlots.filter(slot => slot.dayOfWeek === dayOfWeek);
+        
+        for (const slot of daySlots) {
+          // Slot süresini hesapla
+          const startTime = new Date(`2000-01-01 ${slot.startTime}`);
+          const endTime = new Date(`2000-01-01 ${slot.endTime}`);
+          const slotMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+          
+          // Dersin tamamlanmamış konularını al (sıra ASC)
+          const incompleteSubjects = await db.select({
+            id: subjectProgress.id,
+            subjectId: subjectProgress.subjectId,
+            subjectName: courseSubjects.name,
+            remainingTime: subjectProgress.remainingTime,
+            totalTime: subjectProgress.totalTime,
+            completedTime: subjectProgress.completedTime
+          })
+          .from(subjectProgress)
+          .innerJoin(courseSubjects, eq(subjectProgress.subjectId, courseSubjects.id))
+          .where(
+            and(
+              eq(subjectProgress.studentId, studentId),
+              eq(courseSubjects.courseId, slot.courseId),
+              eq(subjectProgress.isCompleted, 0)
+            )
+          )
+          .orderBy(subjectProgress.id); // Sıra ASC
+
+          if (incompleteSubjects.length === 0) {
+            continue; // Bu slot için konu yok
+          }
+
+          // Konuları süreye göre yerleştir
+          let remainingSlotTime = slotMinutes;
+          const slotSubjects = [];
+          
+          for (const subject of incompleteSubjects) {
+            if (remainingSlotTime <= 0) break;
+            
+            const allocatedTime = Math.min(remainingSlotTime, subject.remainingTime);
+            
+            slotSubjects.push({
+              subjectId: subject.subjectId,
+              name: subject.subjectName,
+              allocatedMinutes: allocatedTime
+            });
+            
+            remainingSlotTime -= allocatedTime;
+            
+            // Konu ilerlemesini güncelle (dry run değilse)
+            if (!isDryRun) {
+              const newCompletedTime = subject.completedTime + allocatedTime;
+              const newRemainingTime = subject.remainingTime - allocatedTime;
+              const isCompleted = newRemainingTime <= 0 ? 1 : 0;
+              
+              await db.update(subjectProgress)
+                .set({
+                  completedTime: newCompletedTime,
+                  remainingTime: Math.max(0, newRemainingTime),
+                  isCompleted,
+                  lastStudyDate: date.toISOString().split('T')[0]
+                })
+                .where(eq(subjectProgress.id, subject.id));
+            }
+          }
+          
+          if (slotSubjects.length > 0) {
+            filledSlots.push({
+              date: date.toISOString().split('T')[0],
+              slotId: slot.id,
+              courseId: slot.courseId,
+              subjects: slotSubjects
+            });
+          }
+        }
+      }
+
+      if (filledSlots.length === 0) {
+        return {
+          success: false,
+          message: "Belirtilen tarih aralığında yerleştirilebilecek konu bulunamadı"
+        };
+      }
+
+      return {
+        success: true,
+        message: `${filledSlots.length} slot için konular ${isDryRun ? 'önizlendi' : 'yerleştirildi'}`,
+        filledSlots,
+        errors: errors.length > 0 ? errors : undefined
+      };
+      
+    } catch (error) {
+      console.error(`Otomatik konu yerleştirme hatası: ${error}`);
+      return {
+        success: false,
+        message: `Hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`,
+        errors: [error instanceof Error ? error.message : 'Bilinmeyen hata']
+      };
     }
   }
 }

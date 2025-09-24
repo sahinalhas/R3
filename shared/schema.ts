@@ -236,6 +236,23 @@ export const insertStudyPlanSchema = createInsertSchema(studyPlans).omit({
   createdAt: true,
 });
 
+// Haftalık Çalışma Slotları tablosu (Takvim 1 - İskelet Plan)
+export const weeklyStudySlots = sqliteTable("weekly_study_slots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(), // Hangi öğrenciye ait olduğu
+  courseId: integer("course_id").notNull(), // Hangi derse ait olduğu
+  dayOfWeek: integer("day_of_week").notNull(), // 1-7 arasında (Pazartesi-Pazar)
+  startTime: text("start_time").notNull(), // Başlangıç saati (HH:MM formatında)
+  endTime: text("end_time").notNull(), // Bitiş saati (HH:MM formatında)
+  notes: text("notes"), // Opsiyonel notlar
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertWeeklyStudySlotSchema = createInsertSchema(weeklyStudySlots).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Konu İlerleme tablosu
 export const subjectProgress = sqliteTable("subject_progress", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -270,6 +287,9 @@ export const insertStudyPlanSubjectSchema = createInsertSchema(studyPlanSubjects
 
 export type StudyPlan = typeof studyPlans.$inferSelect;
 export type InsertStudyPlan = z.infer<typeof insertStudyPlanSchema>;
+
+export type WeeklyStudySlot = typeof weeklyStudySlots.$inferSelect;
+export type InsertWeeklyStudySlot = z.infer<typeof insertWeeklyStudySlotSchema>;
 
 export type SubjectProgress = typeof subjectProgress.$inferSelect;
 export type InsertSubjectProgress = z.infer<typeof insertSubjectProgressSchema>;
