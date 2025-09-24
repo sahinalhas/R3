@@ -68,6 +68,82 @@ export async function registerLegacyRoutes(app: Express): Promise<void> {
     }
   });
 
+  // ===== Dersler API Routes =====
+  
+  // Tüm dersleri getir
+  app.get("/api/courses", requireAuth, async (req, res, next) => {
+    try {
+      const courses = await storage.getCourses();
+      res.json(courses);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ===== Öğrenci Alt Kaynakları API Routes =====
+  
+  // Öğrencinin randevularını getir
+  app.get("/api/students/:id/appointments", requireAuth, async (req, res, next) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      const appointments = await storage.getAppointmentsByStudent(studentId);
+      res.json(appointments);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Öğrencinin çalışma planlarını getir
+  app.get("/api/students/:id/study-plans", requireAuth, async (req, res, next) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      const studyPlans = await storage.getStudyPlansByStudent(studentId);
+      res.json(studyPlans);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Öğrencinin konu ilerlemelerini getir
+  app.get("/api/students/:id/subject-progress", requireAuth, async (req, res, next) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      const subjectProgress = await storage.getSubjectProgressByStudent(studentId);
+      res.json(subjectProgress);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Öğrencinin haftalık slotlarını getir
+  app.get("/api/students/:id/weekly-slots", requireAuth, async (req, res, next) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      const weeklySlots = await storage.getWeeklySlotsByStudent(studentId);
+      res.json(weeklySlots);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Öğrencinin görüşme kayıtlarını getir
+  app.get("/api/students/:id/counseling-sessions", requireAuth, async (req, res, next) => {
+    try {
+      const userRole = (req.user as any).role;
+      const studentId = parseInt(req.params.id);
+      const sessions = await storage.getCounselingSessionsByStudent(studentId);
+      
+      // Role-based confidentiality filtering
+      const filteredSessions = sessions.filter(session => 
+        canAccessCounselingSession(userRole, session.confidentialityLevel, session.visibilityRole)
+      );
+      
+      res.json(filteredSessions);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // Note: All other legacy routes will be added here as needed
   // This is a temporary solution until domain extraction is complete
 }

@@ -1886,7 +1886,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Çalışma Planı API Routes =====
   
   // Öğrencinin çalışma planlarını getir
-  app.get("/api/students/:id/study-plans", async (req, res, next) => {
+  app.get("/api/students/:id/study-plans", requireAuth, async (req, res, next) => {
     try {
       const studentId = parseInt(req.params.id);
       const studyPlans = await storage.getStudyPlansByStudent(studentId);
@@ -2007,7 +2007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Konu İlerleme API Routes =====
   
   // Öğrencinin konu ilerlemelerini getir
-  app.get("/api/students/:id/subject-progress", async (req, res, next) => {
+  app.get("/api/students/:id/subject-progress", requireAuth, async (req, res, next) => {
     try {
       const studentId = parseInt(req.params.id);
       const subjectProgress = await storage.getSubjectProgressByStudent(studentId);
