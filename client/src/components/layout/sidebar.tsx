@@ -19,7 +19,6 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarInput,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -110,9 +109,6 @@ export default function AppSidebar() {
             <h1 className="font-medium tracking-tight text-sm truncate">Rehberlik Servisi</h1>
             <p className="text-[10px] text-sidebar-foreground/60 truncate">Öğrenci Takip Sistemi</p>
           </div>
-        </div>
-        <div className="mt-3 px-1">
-          <SidebarInput placeholder="Ara..." className="text-xs" />
         </div>
       </SidebarHeader>
 

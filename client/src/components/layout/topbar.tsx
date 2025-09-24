@@ -33,15 +33,65 @@ import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "next-themes";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export default function Topbar() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
+  const [, navigate] = useLocation();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showResults, setShowResults] = useState(false);
+
+  // Öğrenci verilerini al
+  const { data: students = [] } = useQuery<any[]>({
+    queryKey: [`/api/students?q=${encodeURIComponent(searchQuery)}`],
+    enabled: showSearch && searchQuery.length > 1
+  });
+
+  // Navigasyon sayfaları
+  const navigationPages = [
+    { name: "Kontrol Paneli", path: "/", description: "Genel istatistikler ve özet" },
+    { name: "Öğrenci Yönetimi", path: "/students", description: "Öğrenci kayıtları ve bilgileri" },
+    { name: "Randevular", path: "/appointments", description: "Danışmanlık randevuları" },
+    { name: "Görüşme Kayıtları", path: "/counseling-sessions-final", description: "Rehberlik görüşme kayıtları" },
+    { name: "Raporlar", path: "/reports", description: "Analiz ve raporlama" },
+    { name: "Ayarlar", path: "/settings", description: "Sistem ve kullanıcı ayarları" },
+  ];
+
+  // Arama sonuçları
+  const searchResults = searchQuery.length > 0 ? {
+    pages: navigationPages.filter(page => 
+      page.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      page.description.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    students: students.filter((student: any) => 
+      `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.classGrade?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.schoolNumber?.toString().includes(searchQuery)
+    ).slice(0, 5)
+  } : { pages: [], students: [] };
+
+  const handleSearchSelect = (type: 'page' | 'student', item: any) => {
+    if (type === 'page') {
+      navigate(item.path);
+    } else if (type === 'student') {
+      navigate(`/students/${item.id}`);
+    }
+    setShowSearch(false);
+    setSearchQuery('');
+    setShowResults(false);
+  };
+
+  const closeSearch = () => {
+    setShowSearch(false);
+    setSearchQuery('');
+    setShowResults(false);
+  };
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
@@ -85,20 +135,98 @@ export default function Topbar() {
         <div className="flex items-center gap-2 md:gap-4">
           {/* Menü Aç/Kapa */}
           <SidebarTrigger className="mr-1" />
-          {/* Arama Butonu */}
+          {/* Arama */}
           <div className="flex relative">
-            <Button
-              variant="ghost"
-              onClick={() => setShowSearch(!showSearch)}
-              className="text-muted-foreground hover:text-foreground"
-              size="sm"
-            >
-              <Search className="h-4 w-4 mr-2" />
-              <span className="text-sm">Hızlı Ara...</span>
-              <kbd className="ml-2 pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 sm:flex">
-                <span className="text-xs">⌘</span>K
-              </kbd>
-            </Button>
+            {!showSearch ? (
+              <Button
+                variant="ghost"
+                onClick={() => setShowSearch(true)}
+                className="text-muted-foreground hover:text-foreground"
+                size="sm"
+                data-testid="button-search-toggle"
+              >
+                <Search className="h-4 w-4 mr-2" />
+                <span className="text-sm">Hızlı Ara...</span>
+                <kbd className="ml-2 pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 sm:flex">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </Button>
+            ) : (
+              <div className="relative">
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Öğrenci, randevu veya sayfa ara..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setShowResults(e.target.value.length > 0);
+                      }}
+                      className="pl-10 pr-4 w-64 md:w-80"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          closeSearch();
+                        } else if (e.key === 'Enter' && searchResults.pages.length > 0) {
+                          handleSearchSelect('page', searchResults.pages[0]);
+                        }
+                      }}
+                      data-testid="input-search"
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={closeSearch}
+                    className="text-muted-foreground hover:text-foreground"
+                    data-testid="button-search-close"
+                  >
+                    ×
+                  </Button>
+                </div>
+                {/* Arama Sonuçları Dropdown */}
+                {showResults && searchQuery.length > 0 && (searchResults.pages.length > 0 || searchResults.students.length > 0) && (
+                  <div className="absolute top-full left-0 mt-1 w-64 md:w-80 bg-background border border-border rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                    {searchResults.pages.length > 0 && (
+                      <div className="p-2">
+                        <div className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase tracking-wide">Sayfalar</div>
+                        {searchResults.pages.map((page) => (
+                          <button
+                            key={page.path}
+                            onClick={() => handleSearchSelect('page', page)}
+                            className="w-full text-left px-3 py-2 hover:bg-accent/50 rounded-sm transition-colors"
+                            data-testid={`button-search-result-page-${page.name.toLowerCase().replace(/ /g, '-')}`}
+                          >
+                            <div className="font-medium text-sm">{page.name}</div>
+                            <div className="text-xs text-muted-foreground truncate">{page.description}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {searchResults.students.length > 0 && (
+                      <div className="p-2">
+                        {searchResults.pages.length > 0 && <div className="border-t border-border mb-2" />}
+                        <div className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase tracking-wide">Öğrenciler</div>
+                        {searchResults.students.map((student: any) => (
+                          <button
+                            key={student.id}
+                            onClick={() => handleSearchSelect('student', student)}
+                            className="w-full text-left px-3 py-2 hover:bg-accent/50 rounded-sm transition-colors"
+                            data-testid={`button-search-result-student-${student.id}`}
+                          >
+                            <div className="font-medium text-sm">{student.firstName} {student.lastName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {student.classGrade} - No: {student.schoolNumber}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
