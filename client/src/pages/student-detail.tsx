@@ -236,7 +236,6 @@ export default function StudentDetailPage() {
     },
     {
       header: "İşlemler",
-      accessorKey: "actions",
       cell: () => (
         <Button variant="ghost" size="icon">
           <MoreVertical className="h-5 w-5" />
@@ -279,8 +278,7 @@ export default function StudentDetailPage() {
     },
     {
       header: "Detay",
-      accessorKey: "actions",
-      cell: (session: CounselingSession) => (
+      cell: () => (
         <Button variant="ghost" size="icon">
           <FileText className="h-4 w-4" />
         </Button>
@@ -435,6 +433,14 @@ export default function StudentDetailPage() {
                 <TabsTrigger value="academic" className="flex items-center">
                   <BookOpen className="mr-2 h-4 w-4" />
                   <span>Akademik Gelişim</span>
+                </TabsTrigger>
+                <TabsTrigger value="study-plans" className="flex items-center">
+                  <Clock8 className="mr-2 h-4 w-4" />
+                  <span>Çalışma Planları</span>
+                </TabsTrigger>
+                <TabsTrigger value="subject-progress" className="flex items-center">
+                  <ListChecks className="mr-2 h-4 w-4" />
+                  <span>Konu Takibi</span>
                 </TabsTrigger>
                 <TabsTrigger value="psychosocial" className="flex items-center">
                   <MessageSquare className="mr-2 h-4 w-4" />
