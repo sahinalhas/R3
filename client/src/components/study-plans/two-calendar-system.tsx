@@ -757,16 +757,16 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
               </CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
-              <div className="min-w-[900px]">
+              <div className="min-w-[900px] border rounded-lg overflow-hidden">
                 {/* Header - Günler */}
-                <div className="grid grid-cols-8 gap-1 mb-2">
-                  <div className="h-12 border rounded bg-muted/50 flex items-center justify-center text-sm font-semibold">
+                <div className="grid grid-cols-8">
+                  <div className="h-12 border-b border-r bg-muted/50 flex items-center justify-center text-sm font-semibold">
                     Saat
                   </div>
-                  {DAYS_OF_WEEK.map((day) => (
+                  {DAYS_OF_WEEK.map((day, index) => (
                     <div 
                       key={day.value} 
-                      className="h-12 border rounded bg-muted/50 flex items-center justify-center text-sm font-semibold"
+                      className={`h-12 border-b ${index < DAYS_OF_WEEK.length - 1 ? 'border-r' : ''} bg-muted/50 flex items-center justify-center text-sm font-semibold`}
                       data-testid={`header-day-${day.value}`}
                     >
                       {day.label}
@@ -775,29 +775,30 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                 </div>
 
                 {/* Grid - Saatler ve Slotlar */}
-                <div className="space-y-1">
+                <div>
                   {TIME_SLOTS.map((timeSlot, timeIndex) => (
-                    <div key={timeSlot} className="grid grid-cols-8 gap-1">
+                    <div key={timeSlot} className="grid grid-cols-8">
                       {/* Saat Sütunu */}
-                      <div className="h-8 border rounded bg-muted/30 flex items-center justify-center text-xs font-mono text-muted-foreground">
+                      <div className={`h-8 ${timeIndex < TIME_SLOTS.length - 1 ? 'border-b' : ''} border-r bg-muted/30 flex items-center justify-center text-xs font-mono text-muted-foreground`}>
                         {timeSlot}
                       </div>
                       
                       {/* Gün Hücreleri */}
-                      {DAYS_OF_WEEK.map((day) => {
+                      {DAYS_OF_WEEK.map((day, dayIndex) => {
                         const slot = getSlotAtTime(day.value, timeSlot);
                         const course = slot ? getCourseById(slot.courseId) : null;
                         const isSlotStart = slot && slot.startTime === timeSlot;
+                        const displayTime = resizingSlot?.id === slot?.id ? resizePreviewTime : null;
                         
                         return (
                           <div
                             key={`${day.value}-${timeSlot}`}
-                            className={`h-8 border rounded transition-all duration-150 relative ${
+                            className={`h-8 ${timeIndex < TIME_SLOTS.length - 1 ? 'border-b' : ''} ${dayIndex < DAYS_OF_WEEK.length - 1 ? 'border-r' : ''} transition-all duration-150 relative ${
                               slot 
-                                ? "bg-primary/10 border-primary/30" 
-                                : "bg-background hover:bg-accent/50 border-border cursor-pointer"
+                                ? "bg-primary/10" 
+                                : "bg-background hover:bg-accent/50 cursor-pointer"
                             } ${
-                              (draggedCourse || draggedSlot) ? "ring-1 ring-primary/30" : ""
+                              (draggedCourse || draggedSlot) ? "ring-1 ring-inset ring-primary/30" : ""
                             }`}
                             onDragOver={handleDragOver}
                             onDrop={(e) => handleCellDrop(e, day.value, timeSlot)}
@@ -813,15 +814,15 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                           >
                             {slot && isSlotStart && (
                               <div
-                                className="absolute inset-0 flex items-center justify-center text-xs font-medium bg-primary/20 border border-primary/40 rounded cursor-move group"
+                                className="absolute inset-0 flex items-center justify-center text-xs font-medium bg-primary/20 border border-primary/40 cursor-move group z-10"
                                 draggable
                                 onDragStart={(e) => handleSlotDragStart(e, slot)}
-                                title={`${course?.name || "?"} (${slot.startTime}-${slot.endTime})`}
+                                title={`${course?.name || "?"} (${displayTime?.start || slot.startTime}-${displayTime?.end || slot.endTime})`}
                                 data-testid={`slot-${slot.id}`}
                               >
                                 {/* Resize handle - top */}
                                 <div
-                                  className="absolute -top-1 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="absolute -top-1 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
                                   onPointerDown={(e) => handleResizeStart(e, slot, 'top')}
                                   onPointerMove={handleResizeMove}
                                   onPointerUp={handleResizeEnd}
@@ -864,7 +865,7 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
 
                                 {/* Resize handle - bottom */}
                                 <div
-                                  className="absolute -bottom-1 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="absolute -bottom-1 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
                                   onPointerDown={(e) => handleResizeStart(e, slot, 'bottom')}
                                   onPointerMove={handleResizeMove}
                                   onPointerUp={handleResizeEnd}
