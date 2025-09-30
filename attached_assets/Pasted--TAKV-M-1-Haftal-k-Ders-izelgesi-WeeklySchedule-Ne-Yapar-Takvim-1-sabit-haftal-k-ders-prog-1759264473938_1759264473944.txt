@@ -1,0 +1,111 @@
+
+
+TAKVİM 1: Haftalık Ders Çizelgesi (WeeklySchedule)
+Ne İş Yapar:
+Takvim 1, sabit haftalık ders programınızı oluşturduğunuz yerdir. Burası bir tür zaman çizelgesi tablodur - hangi dersin haftanın hangi günü, hangi saatte olduğunu belirlersiniz.
+Nasıl Çalışır:
+Görsel Yapı:
+Yatayda 7 gün (Pazartesi'den Pazar'a)
+Dikeyde saat dilimleri (07:00 - 24:00 arası, 30 dakika aralıklarla)
+Toplam 34 satırlık bir zaman çizelgesi
+Ders Ekleme (Sürükle-Bırak):
+Üstte ders listesi görünür (Matematik, Fizik, Türkçe vb.)
+Kategori filtresi var (LGS, TYT, AYT, YDT)
+Bir dersi fare ile sürükleyip takvimin üzerine bırakırsınız
+Otomatik olarak 60 dakikalık bir blok oluşturulur
+Ders Bloklarını Düzenleme:
+Taşıma: Oluşan ders bloğunu sürükleyerek başka gün/saate taşıyabilirsiniz
+Boyutlandırma: Bloğun üst veya alt kenarını sürükleyerek süreyi 30 dakika aralıklarla kısaltır/uzatırsınız
+Çakışma Kontrolü: İki ders aynı saatte olamaz - çakışma olursa uyarı verir
+Haftalık Toplam:
+Tüm ders bloklarının toplamını hesaplar
+5 saatten az ise "Çalışma süren çok düşük!" uyarısı
+10 saatten fazla ise "Plan çok yoğun!" uyarısı
+Teknik Detaylar:
+Her ders bloğu şu bilgileri tutar: gün (1-7), başlangıç saati, bitiş saati, ders ID
+Veri tarayıcıda localStorage'da saklanır
+Drag-and-drop HTML5 API kullanır
+Pointer events ile resize işlemi yapılır
+
+TAKVİM 2: Konu Bazlı Plan (TopicPlanner)
+Ne İş Yapar:
+Takvim 2, hangi konuları ne zaman çalışacağınızı otomatik olarak planlar. Takvim 1'de oluşturduğunuz ders bloklarını alır ve içlerine konuları sırayla yerleştirir.
+Nasıl Çalışır:
+Hafta Seçimi:
+Tarih seçiciyle hangi haftayı planlamak istediğinizi seçersiniz
+Otomatik olarak o haftanın Pazartesi'sini başlangıç noktası yapar
+Otomatik Plan Oluşturma:
+Sistemde tanımlı konuları (örn: "Türev", "Cümle Türleri" vb.) alır
+Her konunun ortalama çalışma süresi vardır (avgMinutes)
+Takvim 1'deki ders bloklarına bu konuları sırayla yerleştirir
+Planlama Mantığı:
+Örnek:
+- Pazartesi 10:00-11:00 → Matematik dersi bloğu (Takvim 1'den)
+- Bu saate "Türev - Limit" konusu yerleştirilir (60 dk)
+- Pazartesi 14:00-15:30 → Fizik dersi bloğu
+- Bu saate "Newton Yasaları" konusu yerleştirilir (90 dk)
+İlerleme Takibi:
+Her konunun "tamamlanan" ve "kalan" dakikası takip edilir
+Görsel ilerleme çubukları ile gösterilir
+Konu bitince bir sonraki konuya geçilir
+Plan Uygulama:
+"Planı Uygula" butonuna basınca, planlanan çalışma süreleri kaydedilir
+Her konunun ilerlemesi güncellenir
+Kullanıcı "Sıfırla" butonu ile konunun ilerlemesini sıfırlayabilir
+Görünüm:
+Gün bazlı liste olarak gösterilir
+Her gün için o günün planı listelenir:
+Saat aralığı (örn: 10:00-11:00)
+Ders adı ve kategorisi (örn: Matematik - TYT)
+Konu adı (örn: Türev)
+Ayrılan süre ve kalan süre
+İlerleme çubuğu
+
+İKİ TAKVİM ARASINDAKİ BAĞ ve İŞ AKIŞI
+Hiyerarşik İlişki:
+TAKVİM 1 (Ana Çerçeve)
+   ↓
+   Ders Blokları Oluşturur (örn: Pazartesi 10:00-11:00 Matematik)
+   ↓
+TAKVİM 2 (Konu Yerleştirme)
+   ↓
+   Bu bloklara konuları sırayla yerleştirir (örn: Türev konusu)
+Adım Adım Kullanım:
+Önce Takvim 1:
+Haftalık sabit ders programınızı oluşturun
+Örnek: "Pazartesi 09:00-10:30 Matematik", "Salı 14:00-15:00 Türkçe"
+Sonra Takvim 2:
+Sistem, Takvim 1'deki bu blokları alır
+Konuları bu bloklara otomatik yerleştirir
+Planlanan haftayı gösterir
+Konu Yerleşme Mantığı:
+Konular, derslerine göre eşleştirilir (Matematik konuları → Matematik bloklarına)
+Sırayla (priority ve avgMinutes'a göre) yerleştirilir
+Bir konu bitmeden diğerine geçilmez
+Eğer bir blok bir konuyu tamamlamaya yetmezse, konu birden fazla bloğa bölünür
+Veri Akışı:
+// Takvim 1 Verisi (WeeklySlot):
+{
+ id: "uuid",
+ studentId: "student-123",
+ day: 1, // Pazartesi
+ start: "10:00",
+ end: "11:00",
+ subjectId: "matematik-id"
+}
+// Takvim 2 Verisi (Plan):
+{
+ date: "2025-09-30",
+ day: 1,
+ start: "10:00",
+ end: "11:00",
+ subjectId: "matematik-id",
+ topicId: "turev-id",
+ allocated: 60, // dakika
+ remainingAfter: 120 // bu konuda kalan dakika
+}
+Özet:
+Takvim 1 = "Ne zaman ders çalışacağım?" (sabit haftalık program)
+Takvim 2 = "Hangi konuları çalışacağım?" (otomatik konu dağılımı)
+İkisi birlikte tam bir haftalık çalışma planı oluşturur
+Takvim 1 olmadan Takvim 2 çalışmaz, çünkü konuları yerleştirecek zaman blokları yoktur. Önce iskele (Takvim 1), sonra içerik (Takvim 2) mantığıyla çalışır
