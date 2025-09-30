@@ -144,6 +144,156 @@ export async function registerLegacyRoutes(app: Express): Promise<void> {
     }
   });
 
+  // ===== Haftalık Çalışma Slotları API Routes =====
+  
+  // Öğrenci için yeni haftalık slot oluştur
+  app.post("/api/students/:id/weekly-slots", requireAuth, async (req, res, next) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      const validatedData = insertWeeklyStudySlotSchema.parse({
+        ...req.body,
+        studentId
+      });
+      
+      const weeklySlot = await storage.createWeeklySlot(validatedData);
+      
+      // Aktivite kaydı ekle
+      await storage.createActivity({
+        type: "haftalik_slot_ekleme",
+        message: `Haftalık çalışma slotu eklendi`,
+        relatedId: weeklySlot.id
+      });
+      
+      res.status(201).json(weeklySlot);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Eksik ya da hatalı bilgi", errors: err.errors });
+      }
+      next(err);
+    }
+  });
+
+  // Haftalık slot güncelle
+  app.patch("/api/weekly-slots/:slotId", requireAuth, async (req, res, next) => {
+    try {
+      const slotId = parseInt(req.params.slotId);
+      const validatedData = insertWeeklyStudySlotSchema.partial().parse(req.body);
+      
+      // IDOR koruması: studentId'nin değiştirilmesini engelle
+      if (validatedData.studentId) {
+        return res.status(403).json({ message: "Öğrenci ID'si değiştirilemez" });
+      }
+      
+      const updatedSlot = await storage.updateWeeklySlot(slotId, validatedData);
+      
+      if (!updatedSlot) {
+        return res.status(404).json({ message: "Haftalık slot bulunamadı" });
+      }
+      
+      res.json(updatedSlot);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Eksik ya da hatalı bilgi", errors: err.errors });
+      }
+      next(err);
+    }
+  });
+
+  // Haftalık slot sil
+  app.delete("/api/weekly-slots/:slotId", requireAuth, async (req, res, next) => {
+    try {
+      const slotId = parseInt(req.params.slotId);
+      
+      const success = await storage.deleteWeeklySlot(slotId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Haftalık slot bulunamadı" });
+      }
+      
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Öğrencinin haftalık toplam çalışma süresini getir
+  app.get("/api/students/:id/weekly-total-minutes", requireAuth, async (req, res, next) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      const totalMinutes = await storage.getWeeklyTotalMinutes(studentId);
+      res.json({ totalMinutes });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Otomatik konu yerleştirme (preview + confirm)
+  app.post("/api/students/:id/auto-fill", requireAuth, async (req, res, next) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      
+      const schema = z.object({
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Geçerli tarih formatı: YYYY-MM-DD"),
+        endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Geçerli tarih formatı: YYYY-MM-DD"),
+        dryRun: z.boolean().optional().default(true)
+      });
+      
+      const { startDate, endDate, dryRun } = schema.parse(req.body);
+      
+      // Tarih doğrulama
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (start > end) {
+        return res.status(400).json({ 
+          message: "Başlangıç tarihi bitiş tarihinden sonra olamaz" 
+        });
+      }
+      
+      // Otomatik konu yerleştirme algoritmasını çalıştır
+      const result = await storage.autoFillTopics(studentId, startDate, endDate, { dryRun });
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      
+      // Başarılı durumda aktivite kaydı ekle (sadece confirm işleminde)
+      if (!dryRun) {
+        await storage.createActivity({
+          type: "otomatik_konu_yerlestirme",
+          message: `${startDate} - ${endDate} tarihleri için otomatik konu yerleştirme yapıldı`,
+          relatedId: studentId
+        });
+      }
+      
+      res.json(result);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Eksik ya da hatalı bilgi", errors: err.errors });
+      }
+      next(err);
+    }
+  });
+
+  // ===== Ders Konuları API Routes =====
+  
+  // Bir derse ait tüm konuları getir
+  app.get("/api/courses/:id/subjects", requireAuth, async (req, res, next) => {
+    try {
+      const courseId = parseInt(req.params.id);
+      
+      const course = await storage.getCourse(courseId);
+      if (!course) {
+        return res.status(404).json({ message: "Ders bulunamadı" });
+      }
+      
+      const subjects = await storage.getCourseSubjectsByCourse(courseId);
+      res.json(subjects);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // Note: All other legacy routes will be added here as needed
   // This is a temporary solution until domain extraction is complete
 }

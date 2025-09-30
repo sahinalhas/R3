@@ -180,4 +180,49 @@ db.exec(`
   )
 `);
 
+// Haftalık Çalışma Slotları tablosu (Takvim 1 - İskelet Plan)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS weekly_study_slots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER NOT NULL,
+    course_id INTEGER NOT NULL,
+    day_of_week INTEGER NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Okul Bilgileri tablosu
+db.exec(`
+  CREATE TABLE IF NOT EXISTS school_info (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    school_name TEXT NOT NULL,
+    address TEXT,
+    phone TEXT,
+    email TEXT,
+    principal_name TEXT,
+    vice_principal_name TEXT,
+    counselor_count INTEGER,
+    student_count INTEGER,
+    academic_year TEXT,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Bildirimler tablosu
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'info',
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 console.log('Veritabanı tabloları başarıyla oluşturuldu!');
