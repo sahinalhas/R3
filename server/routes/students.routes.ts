@@ -23,7 +23,7 @@ router.get("/:id",
   requireAuth,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const { id } = req.params as { id: number };
+    const id = parseInt(req.params.id);
     const student = await studentsService.getStudent(id);
     res.json(student);
   })
@@ -47,7 +47,7 @@ router.put("/:id",
     body: insertStudentSchema.partial()
   }),
   asyncHandler(async (req, res) => {
-    const { id } = req.params as { id: number };
+    const id = parseInt(req.params.id);
     const student = await studentsService.updateStudent(id, req.body);
     res.json(student);
   })
@@ -58,7 +58,7 @@ router.delete("/:id",
   requireAuth,
   validate({ params: idParamSchema }),
   asyncHandler(async (req, res) => {
-    const { id } = req.params as { id: number };
+    const id = parseInt(req.params.id);
     await studentsService.deleteStudent(id);
     res.status(204).end();
   })

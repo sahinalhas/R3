@@ -28,8 +28,8 @@ function Router() {
       <ProtectedRoute path="/counseling-sessions-final" component={CounselingSessionsPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
-      <ProtectedRoute path="/class-hours" component={ClassHoursPage} />
-      <ProtectedRoute path="/school-info" component={SchoolInfoPage} />
+      <Route path="/class-hours" component={ClassHoursPage} />
+      <Route path="/school-info" component={SchoolInfoPage} />
       
       {/* Public routes */}
       <Route path="/auth" component={AuthPage} />

@@ -1307,7 +1307,7 @@ Sınav kaygısı"
                                   <h4 className="font-medium">{classHour.name}</h4>
                                   <p className="text-sm text-muted-foreground">
                                     {classHour.startTime} - {classHour.endTime}
-                                    {classHour.dayOfWeek > 0 ? (
+                                    {classHour.dayOfWeek && classHour.dayOfWeek > 0 ? (
                                       <span className="ml-2 text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full">
                                         {["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"][classHour.dayOfWeek - 1]}
                                       </span>
@@ -1623,7 +1623,7 @@ Sınav kaygısı"
                           <div className="mt-4">
                             <h4 className="text-sm font-medium text-destructive mb-2">Hatalar:</h4>
                             <ul className="text-xs text-destructive space-y-1">
-                              {restoreReport.errors.slice(0, 5).map((error, index) => (
+                              {restoreReport.errors.slice(0, 5).map((error: string, index: number) => (
                                 <li key={index} className="pl-2 border-l-2 border-destructive">
                                   {error}
                                 </li>

@@ -18,6 +18,7 @@ import {
 import { db } from "./db";
 import { eq, and, like, desc, or } from "drizzle-orm";
 import session from "express-session";
+// @ts-ignore - No type definitions available for better-sqlite3-session-store
 import SQLiteStore from "better-sqlite3-session-store";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
@@ -1044,8 +1045,10 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Çalışılacak tamamlanmamış konu bulunamadı`);
       }
       
-      // Çalışma planında belirtilen çalışma süresi miktarını konulara dağıt
-      const totalStudyTime = studyPlan.durationMinutes;
+      // Çalışma planında belirtilen çalışma süresi miktarını hesapla (startTime ve endTime'dan)
+      const startTime = new Date(`2000-01-01 ${studyPlan.startTime}`);
+      const endTime = new Date(`2000-01-01 ${studyPlan.endTime}`);
+      const totalStudyTime = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       let remainingStudyTime = totalStudyTime;
       
       const subjectPlans: InsertStudyPlanSubject[] = [];
@@ -1171,14 +1174,14 @@ export class DatabaseStorage implements IStorage {
       // Kullanıcıya ait bildirimler + global bildirimler (userId=null)
       if (userId !== undefined) {
         const userCondition = eq(notifications.userId, userId);
-        const globalCondition = eq(notifications.userId, null);
+        const globalCondition = eq(notifications.userId, null as any);
         query = query.where(or(userCondition, globalCondition)) as any;
       }
       
       // Sadece okunmamış bildirimler filtresi
       if (onlyUnread) {
         const userCondition = userId !== undefined 
-          ? or(eq(notifications.userId, userId), eq(notifications.userId, null))
+          ? or(eq(notifications.userId, userId), eq(notifications.userId, null as any))
           : undefined;
         const readCondition = eq(notifications.isRead, 0);
         
@@ -1440,8 +1443,17 @@ export class DatabaseStorage implements IStorage {
   }> {
     try {
       const isDryRun = opts?.dryRun ?? false;
-      const filledSlots = [];
-      const errors = [];
+      const filledSlots: Array<{
+        date: string;
+        slotId: number;
+        courseId: number;
+        subjects: Array<{
+          subjectId: number;
+          name: string;
+          allocatedMinutes: number;
+        }>;
+      }> = [];
+      const errors: string[] = [];
 
       // 1. Haftalık slotları al
       const weeklySlots = await this.getWeeklySlotsByStudent(studentId);
