@@ -34,8 +34,6 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Calendar as CalendarIcon, 
   Clock, 
-  Plus, 
-  Edit, 
   Trash2, 
   AlertTriangle,
   CheckCircle,
@@ -123,8 +121,6 @@ const TIME_SLOTS = Array.from({ length: 34 }, (_, i) => {
 
 export default function TwoCalendarSystem({ studentId, courses, subjectProgress }: TwoCalendarSystemProps) {
   const { toast } = useToast();
-  const [isSlotDialogOpen, setIsSlotDialogOpen] = useState(false);
-  const [editingSlot, setEditingSlot] = useState<WeeklyStudySlot | null>(null);
   const [isAutoFillDialogOpen, setIsAutoFillDialogOpen] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category>('all');
@@ -169,31 +165,24 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
     enabled: courses.length > 0,
   });
 
-  // Haftalık slot oluşturma/güncelleme mutation
+  // Haftalık slot oluşturma mutation (sadece drag & drop için)
   const slotMutation = useMutation({
     mutationFn: async (data: WeeklySlotFormValues) => {
-      if (editingSlot) {
-        const res = await apiRequest("PATCH", `/api/weekly-slots/${editingSlot.id}`, data);
-        return res.json();
-      } else {
-        const res = await apiRequest("POST", `/api/students/${studentId}/weekly-slots`, data);
-        return res.json();
-      }
+      const res = await apiRequest("POST", `/api/students/${studentId}/weekly-slots`, data);
+      return res.json();
     },
     onSuccess: () => {
       toast({
         title: "Başarılı",
-        description: editingSlot ? "Slot başarıyla güncellendi" : "Slot başarıyla oluşturuldu",
+        description: "Ders başarıyla eklendi",
       });
-      setIsSlotDialogOpen(false);
-      setEditingSlot(null);
       queryClient.invalidateQueries({ queryKey: [`/api/students/${studentId}/weekly-slots`] });
       queryClient.invalidateQueries({ queryKey: [`/api/students/${studentId}/weekly-total-minutes`] });
     },
     onError: (error: any) => {
       toast({
         title: "Hata",
-        description: error.message || "Slot kaydedilirken hata oluştu",
+        description: error.message || "Ders eklenirken hata oluştu",
         variant: "destructive",
       });
     },
@@ -282,18 +271,6 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
   });
 
   // Form tanımlamaları
-  const slotForm = useForm<WeeklySlotFormValues>({
-    resolver: zodResolver(weeklySlotFormSchema),
-    defaultValues: {
-      studentId,
-      courseId: 0,
-      dayOfWeek: 1,
-      startTime: "09:00",
-      endTime: "10:00",
-      notes: "",
-    },
-  });
-
   const autoFillForm = useForm<AutoFillFormValues>({
     resolver: zodResolver(autoFillFormSchema),
     defaultValues: {
@@ -302,33 +279,6 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
       dryRun: true,
     },
   });
-
-  // Slot form handlers
-  const handleCreateSlot = () => {
-    setEditingSlot(null);
-    slotForm.reset({
-      studentId,
-      courseId: 0,
-      dayOfWeek: 1,
-      startTime: "09:00",
-      endTime: "10:00",
-      notes: "",
-    });
-    setIsSlotDialogOpen(true);
-  };
-
-  const handleEditSlot = (slot: WeeklyStudySlot) => {
-    setEditingSlot(slot);
-    slotForm.reset({
-      studentId: slot.studentId,
-      courseId: slot.courseId,
-      dayOfWeek: slot.dayOfWeek,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      notes: slot.notes || "",
-    });
-    setIsSlotDialogOpen(true);
-  };
 
   const handleDeleteSlot = (slotId: number) => {
     if (confirm("Bu slotu silmek istediğinizden emin misiniz?")) {
@@ -425,7 +375,6 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
         const updateMutation = async () => {
           try {
             const res = await apiRequest("PATCH", `/api/weekly-slots/${draggedSlot.id}`, {
-              studentId: draggedSlot.studentId,
               courseId: draggedSlot.courseId,
               dayOfWeek,
               startTime: timeSlot,
@@ -471,7 +420,7 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
     if (!resizingSlot) return;
     
     const deltaY = e.clientY - resizeStartY;
-    const cellHeight = 32;
+    const cellHeight = 48;
     const deltaSlots = Math.round(deltaY / cellHeight);
     
     if (deltaSlots === 0) return;
@@ -530,7 +479,6 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
       } else {
         try {
           await apiRequest("PATCH", `/api/weekly-slots/${slot.id}`, {
-            studentId: slot.studentId,
             courseId: slot.courseId,
             dayOfWeek: slot.dayOfWeek,
             startTime: newStartTime,
@@ -557,10 +505,6 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
     
     setResizingSlot(null);
     setResizePreviewTime({ start: '', end: '' });
-  };
-
-  const onSlotSubmit = (data: WeeklySlotFormValues) => {
-    slotMutation.mutate(data);
   };
 
   const onAutoFillSubmit = (data: AutoFillFormValues) => {
@@ -734,16 +678,6 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                 {filteredCourses.length === 0 && (
                   <p className="text-sm text-muted-foreground">Bu kategoride ders bulunmuyor</p>
                 )}
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleCreateSlot}
-                  className="ml-4"
-                  data-testid="button-create-slot"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Manuel Ekle
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -753,7 +687,7 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
             <CardHeader>
               <CardTitle>Haftalık Çalışma Takvimi</CardTitle>
               <CardDescription>
-                07:00 - 24:00 arası 30 dakikalık aralıklarla. Blokları sürükleyerek taşıyın veya kenarlarından boyutlandırın.
+                07:00 - 24:00 arası 30 dakikalık aralıklarla. Ders bloklarını sürükle-bırak ile taşıyın, üst/alt kenarlarından boyutlandırın.
               </CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
@@ -779,7 +713,7 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                   {TIME_SLOTS.map((timeSlot, timeIndex) => (
                     <div key={timeSlot} className="grid grid-cols-8">
                       {/* Saat Sütunu */}
-                      <div className={`h-8 ${timeIndex < TIME_SLOTS.length - 1 ? 'border-b' : ''} border-r bg-muted/30 flex items-center justify-center text-xs font-mono text-muted-foreground`}>
+                      <div className={`h-12 ${timeIndex < TIME_SLOTS.length - 1 ? 'border-b' : ''} border-r bg-muted/30 flex items-center justify-center text-xs font-mono text-muted-foreground`}>
                         {timeSlot}
                       </div>
                       
@@ -793,28 +727,20 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                         return (
                           <div
                             key={`${day.value}-${timeSlot}`}
-                            className={`h-8 ${timeIndex < TIME_SLOTS.length - 1 ? 'border-b' : ''} ${dayIndex < DAYS_OF_WEEK.length - 1 ? 'border-r' : ''} transition-all duration-150 relative ${
+                            className={`h-12 ${timeIndex < TIME_SLOTS.length - 1 ? 'border-b' : ''} ${dayIndex < DAYS_OF_WEEK.length - 1 ? 'border-r' : ''} transition-all duration-150 relative ${
                               slot 
                                 ? "bg-primary/10" 
-                                : "bg-background hover:bg-accent/50 cursor-pointer"
+                                : "bg-background hover:bg-primary/5 cursor-pointer hover:ring-1 hover:ring-inset hover:ring-primary/20"
                             } ${
-                              (draggedCourse || draggedSlot) ? "ring-1 ring-inset ring-primary/30" : ""
+                              (draggedCourse || draggedSlot) ? "ring-2 ring-inset ring-primary/40 bg-primary/5" : ""
                             }`}
                             onDragOver={handleDragOver}
                             onDrop={(e) => handleCellDrop(e, day.value, timeSlot)}
-                            onClick={() => {
-                              if (!slot && !draggedCourse && !draggedSlot) {
-                                slotForm.setValue("dayOfWeek", day.value);
-                                slotForm.setValue("startTime", timeSlot);
-                                slotForm.setValue("endTime", TIME_SLOTS[timeIndex + 2] || "23:59");
-                                setIsSlotDialogOpen(true);
-                              }
-                            }}
                             data-testid={`calendar-cell-${day.value}-${timeSlot}`}
                           >
                             {slot && isSlotStart && (
                               <div
-                                className="absolute inset-0 flex items-center justify-center text-xs font-medium bg-primary/20 border border-primary/40 cursor-move group z-10"
+                                className="absolute inset-0 flex flex-col items-stretch text-xs font-medium bg-gradient-to-b from-primary/25 to-primary/20 border-2 border-primary/50 rounded-sm cursor-move group z-10 hover:shadow-lg hover:from-primary/30 hover:to-primary/25 hover:border-primary/60 transition-all"
                                 draggable
                                 onDragStart={(e) => handleSlotDragStart(e, slot)}
                                 title={`${course?.name || "?"} (${displayTime?.start || slot.startTime}-${displayTime?.end || slot.endTime})`}
@@ -822,56 +748,51 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                               >
                                 {/* Resize handle - top */}
                                 <div
-                                  className="absolute -top-1 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                                  className="absolute -top-1.5 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center z-20 opacity-40 group-hover:opacity-100 transition-opacity"
                                   onPointerDown={(e) => handleResizeStart(e, slot, 'top')}
                                   onPointerMove={handleResizeMove}
                                   onPointerUp={handleResizeEnd}
                                   data-testid={`resize-top-${slot.id}`}
                                 >
-                                  <div className="h-1 bg-primary/60 rounded-full mx-auto w-12"></div>
+                                  <div className="h-1 bg-primary rounded-full w-16 shadow-sm"></div>
                                 </div>
 
-                                <div className="flex items-center gap-1 px-2 truncate w-full justify-between">
-                                  <span className="truncate text-xs font-semibold text-primary">
-                                    {course?.name?.substring(0, 10) || "?"}
-                                  </span>
-                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex-1 flex items-center gap-2 px-3 py-1 justify-between">
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <div className="flex-shrink-0 w-1 h-full bg-primary rounded-full"></div>
+                                    <span className="truncate text-sm font-bold text-primary dark:text-primary-foreground">
+                                      {course?.name || "?"}
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-5 w-5 p-0 hover:bg-primary/30"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditSlot(slot);
-                                      }}
-                                      data-testid={`button-edit-slot-${slot.id}`}
-                                    >
-                                      <Edit className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-5 w-5 p-0 hover:bg-destructive/30"
+                                      className="h-6 w-6 p-0 hover:bg-destructive/40 rounded-full"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteSlot(slot.id);
                                       }}
                                       data-testid={`button-delete-slot-${slot.id}`}
                                     >
-                                      <Trash2 className="h-3 w-3" />
+                                      <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                   </div>
                                 </div>
 
+                                <div className="text-[10px] px-3 pb-1 text-primary/80 font-mono opacity-60 group-hover:opacity-100">
+                                  {displayTime?.start || slot.startTime} - {displayTime?.end || slot.endTime}
+                                </div>
+
                                 {/* Resize handle - bottom */}
                                 <div
-                                  className="absolute -bottom-1 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                                  className="absolute -bottom-1.5 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center z-20 opacity-40 group-hover:opacity-100 transition-opacity"
                                   onPointerDown={(e) => handleResizeStart(e, slot, 'bottom')}
                                   onPointerMove={handleResizeMove}
                                   onPointerUp={handleResizeEnd}
                                   data-testid={`resize-bottom-${slot.id}`}
                                 >
-                                  <div className="h-1 bg-primary/60 rounded-full mx-auto w-12"></div>
+                                  <div className="h-1 bg-primary rounded-full w-16 shadow-sm"></div>
                                 </div>
                               </div>
                             )}
@@ -883,11 +804,19 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                 </div>
 
                 {/* Yardım Metni */}
-                <div className="mt-4 p-4 bg-accent/50 rounded-lg border">
-                  <p className="text-sm">
-                    💡 <strong>Kullanım:</strong> Üstteki dersleri sürükleyip takvime bırakın (otomatik 60 dakika). 
-                    Slotları sürükleyerek taşıyın veya üst/alt kenarlarından 30 dakika aralıklarla boyutlandırın.
-                  </p>
+                <div className="mt-4 p-4 bg-gradient-to-r from-accent/50 to-accent/30 rounded-lg border-2 border-primary/20">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 text-2xl">💡</div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-primary">Nasıl Kullanılır?</p>
+                      <ul className="text-sm space-y-1 text-muted-foreground">
+                        <li>• <strong>Ders Ekle:</strong> Üstteki dersleri takvime sürükle-bırak yapın (otomatik 60 dk)</li>
+                        <li>• <strong>Taşı:</strong> Ders bloğunu tıklayıp başka bir güne/saate sürükleyin</li>
+                        <li>• <strong>Boyutlandır:</strong> Bloğun üst veya alt kenarındaki çubuğu sürükleyin (30 dk aralıklarla)</li>
+                        <li>• <strong>Düzenle/Sil:</strong> Bloğun üzerine gelince görünecek düğmeleri kullanın</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -1073,145 +1002,6 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* SLOT OLUŞTURMA/DÜZENLEME DİYALOĞU */}
-      <Dialog open={isSlotDialogOpen} onOpenChange={setIsSlotDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>
-              {editingSlot ? "Slot Düzenle" : "Yeni Slot Oluştur"}
-            </DialogTitle>
-          </DialogHeader>
-          <Form {...slotForm}>
-            <form onSubmit={slotForm.handleSubmit(onSlotSubmit)} className="space-y-4">
-              <FormField
-                control={slotForm.control}
-                name="courseId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ders</FormLabel>
-                    <Select onValueChange={(value) => field.onChange(Number(value))} value={String(field.value)}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-course">
-                          <SelectValue placeholder="Ders seçin" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {courses.map((course) => (
-                          <SelectItem key={course.id} value={String(course.id)}>
-                            {course.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={slotForm.control}
-                name="dayOfWeek"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Gün</FormLabel>
-                    <Select onValueChange={(value) => field.onChange(Number(value))} value={String(field.value)}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-day">
-                          <SelectValue placeholder="Gün seçin" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {DAYS_OF_WEEK.map((day) => (
-                          <SelectItem key={day.value} value={String(day.value)}>
-                            {day.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={slotForm.control}
-                  name="startTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Başlangıç</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="time" 
-                          {...field} 
-                          data-testid="input-start-time"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={slotForm.control}
-                  name="endTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Bitiş</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="time" 
-                          {...field} 
-                          data-testid="input-end-time"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={slotForm.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notlar (İsteğe bağlı)</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Ek notlar..."
-                        {...field}
-                        value={field.value || ""}
-                        data-testid="textarea-notes"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex justify-end space-x-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsSlotDialogOpen(false)}
-                  data-testid="button-cancel-slot"
-                >
-                  İptal
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={slotMutation.isPending}
-                  data-testid="button-save-slot"
-                >
-                  {slotMutation.isPending ? "Kaydediliyor..." : "Kaydet"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
 
       {/* OTOMATİK KONU YERLEŞTİRME DİYALOĞU */}
       <Dialog open={isAutoFillDialogOpen} onOpenChange={setIsAutoFillDialogOpen}>
