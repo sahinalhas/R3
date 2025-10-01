@@ -9,6 +9,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup auth first
   setupAuth(app);
 
+  // Register legacy routes first (temporarily until all domains are extracted)
+  await registerLegacyRoutes(app);
+
   const router = Router();
 
   // Mount new modular domain routers
@@ -16,9 +19,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount all new API routes under /api
   app.use("/api", router);
-
-  // Register legacy routes (temporarily until all domains are extracted)
-  await registerLegacyRoutes(app);
 
   // 404 handler for API routes (should be after all route registrations)
   app.use("/api/*", notFoundHandler);
