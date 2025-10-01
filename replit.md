@@ -10,7 +10,16 @@ This is a full-stack school guidance service management application built with R
 - **UI Components**: Radix UI components with custom styling
 - **Authentication**: Session-based with Passport.js
 
-## Recent Changes (September 30, 2025)
+## Recent Changes (October 1, 2025)
+- ✅ Fixed course subjects (topics) management system
+- ✅ Updated duration labels from "lesson hours" to "minutes" throughout the application
+- ✅ Updated CourseSubjectsManager component to display "dakika" (minutes) instead of "ders saati" (lesson hours)
+- ✅ Fixed critical routing issue: legacy routes in server/routes.ts weren't being registered
+- ✅ Implemented dual route registration system to support both legacy and modular routes
+- ✅ Added authentication middleware to course-subjects POST endpoint
+- ✅ Verified course subject creation works end-to-end with API testing
+
+## Previous Changes (September 30, 2025)
 - ✅ Successfully imported project from GitHub to Replit
 - ✅ Fixed missing nanoid dependency in package.json
 - ✅ Configured development workflow with proper webview output on port 5000
@@ -60,3 +69,4 @@ The application uses SQLite with the following main tables:
 - Both frontend and backend served from single Express server
 - Vite dev server integrated with Express in development mode
 - SQLite database with proper table initialization
+- **Architecture Note**: Currently using dual routing system (legacy server/routes.ts and modular routes/index.ts) - consider consolidating in future to avoid duplicate route definitions
