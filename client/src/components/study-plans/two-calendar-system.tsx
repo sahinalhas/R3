@@ -574,6 +574,16 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
     );
   };
 
+  // Slot yüksekliğini hesapla (kaç hücreyi kaplayacak)
+  const calculateSlotHeight = (startTime: string, endTime: string) => {
+    const startIndex = TIME_SLOTS.indexOf(startTime);
+    const endIndex = TIME_SLOTS.findIndex(t => t >= endTime);
+    const actualEndIndex = endIndex === -1 ? TIME_SLOTS.length : endIndex;
+    const cellCount = actualEndIndex - startIndex;
+    const heightInPixels = cellCount * 48; // Her hücre 48px (h-12)
+    return heightInPixels;
+  };
+
   const formatMinutes = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -759,12 +769,18 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                         const isSlotStart = slot && slot.startTime === timeSlot;
                         const displayTime = resizingSlot?.id === slot?.id ? resizePreviewTime : null;
                         
+                        // Slot yüksekliğini hesapla
+                        const slotStartTime = displayTime?.start || slot?.startTime || '';
+                        const slotEndTime = displayTime?.end || slot?.endTime || '';
+                        const slotHeight = slot && isSlotStart ? calculateSlotHeight(slotStartTime, slotEndTime) : 0;
+                        
                         // Önizleme kontrolü - bu hücre önizleme aralığında mı?
                         const isInPreview = dropPreview && 
                           dropPreview.day === day.value && 
                           dropPreview.time <= timeSlot && 
                           dropPreview.endTime > timeSlot;
                         const isPreviewStart = dropPreview?.day === day.value && dropPreview?.time === timeSlot;
+                        const previewHeight = isPreviewStart && dropPreview ? calculateSlotHeight(dropPreview.time, dropPreview.endTime) : 0;
                         
                         return (
                           <div
@@ -784,16 +800,20 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                             data-testid={`calendar-cell-${day.value}-${timeSlot}`}
                           >
                             {/* Önizleme overlay */}
-                            {isPreviewStart && dropPreview && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-green-500/20 border-2 border-green-500 rounded-md z-[5] pointer-events-none">
+                            {isPreviewStart && dropPreview && previewHeight > 0 && (
+                              <div 
+                                className="absolute top-0 left-0 right-0 flex items-center justify-center bg-green-500/20 border-2 border-green-500 rounded-md z-[5] pointer-events-none"
+                                style={{ height: `${previewHeight}px` }}
+                              >
                                 <span className="text-xs font-semibold text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900 px-2 py-1 rounded">
                                   {draggedCourse?.name || "Taşınıyor..."}
                                 </span>
                               </div>
                             )}
-                            {slot && isSlotStart && (
+                            {slot && isSlotStart && slotHeight > 0 && (
                               <div
-                                className="absolute inset-0 flex flex-col items-stretch text-xs font-medium bg-gradient-to-br from-primary/30 via-primary/20 to-primary/15 border-l-4 border-l-primary border-y border-r border-primary/40 rounded-md cursor-move group z-10 hover:shadow-xl hover:from-primary/35 hover:via-primary/25 hover:to-primary/20 hover:border-primary/60 transition-all overflow-hidden"
+                                className="absolute top-0 left-0 right-0 flex flex-col items-stretch text-xs font-medium bg-gradient-to-br from-primary/30 via-primary/20 to-primary/15 border-l-4 border-l-primary border-y border-r border-primary/40 rounded-md cursor-move group z-10 hover:shadow-xl hover:from-primary/35 hover:via-primary/25 hover:to-primary/20 hover:border-primary/60 transition-all overflow-hidden"
+                                style={{ height: `${slotHeight}px` }}
                                 draggable
                                 onDragStart={(e) => handleSlotDragStart(e, slot)}
                                 title={`${course?.name || "?"} (${displayTime?.start || slot.startTime}-${displayTime?.end || slot.endTime})`}
