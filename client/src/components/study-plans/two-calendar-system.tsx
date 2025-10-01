@@ -131,12 +131,14 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
   // Drag & Drop state
   const [draggedCourse, setDraggedCourse] = useState<Course | null>(null);
   const [draggedSlot, setDraggedSlot] = useState<WeeklyStudySlot | null>(null);
+  const [dropPreview, setDropPreview] = useState<{ day: number; time: string; endTime: string } | null>(null);
   
   // Resize state
   const [resizingSlot, setResizingSlot] = useState<{ id: number; edge: 'top' | 'bottom'; slot: WeeklyStudySlot } | null>(null);
   const [resizeStartY, setResizeStartY] = useState(0);
   const [resizeOriginalTime, setResizeOriginalTime] = useState({ start: '', end: '' });
   const [resizePreviewTime, setResizePreviewTime] = useState({ start: '', end: '' });
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   // Haftalık slotları getir
   const { data: weeklySlots = [], isLoading: isSlotsLoading } = useQuery<WeeklyStudySlot[]>({
@@ -297,13 +299,46 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, dayOfWeek?: number, timeSlot?: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = draggedCourse ? "copy" : "move";
+    
+    // Önizleme göster
+    if (draggedCourse && dayOfWeek && timeSlot) {
+      const timeIndex = TIME_SLOTS.indexOf(timeSlot);
+      const nextTimeSlot = TIME_SLOTS[timeIndex + 2] || "23:59";
+      setDropPreview({ day: dayOfWeek, time: timeSlot, endTime: nextTimeSlot });
+    } else if (draggedSlot && dayOfWeek && timeSlot) {
+      const originalStartTime = draggedSlot.startTime;
+      const originalEndTime = draggedSlot.endTime;
+      const startHour = parseInt(originalStartTime.split(':')[0]);
+      const startMinute = parseInt(originalStartTime.split(':')[1]);
+      const endHour = parseInt(originalEndTime.split(':')[0]);
+      const endMinute = parseInt(originalEndTime.split(':')[1]);
+      const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+      
+      const newStartHour = parseInt(timeSlot.split(':')[0]);
+      const newStartMinute = parseInt(timeSlot.split(':')[1]);
+      const newStartTotalMinutes = newStartHour * 60 + newStartMinute;
+      const newEndTotalMinutes = newStartTotalMinutes + durationMinutes;
+      
+      const maxEndMinutes = 23 * 60 + 59;
+      const clampedEndMinutes = Math.min(newEndTotalMinutes, maxEndMinutes);
+      const newEndHour = Math.floor(clampedEndMinutes / 60);
+      const newEndMinute = clampedEndMinutes % 60;
+      const newEndTime = `${newEndHour.toString().padStart(2, '0')}:${newEndMinute.toString().padStart(2, '0')}`;
+      
+      setDropPreview({ day: dayOfWeek, time: timeSlot, endTime: newEndTime });
+    }
+  };
+  
+  const handleDragLeave = () => {
+    setDropPreview(null);
   };
 
   const handleCellDrop = async (e: React.DragEvent, dayOfWeek: number, timeSlot: string) => {
     e.preventDefault();
+    setDropPreview(null);
     
     const timeIndex = TIME_SLOTS.indexOf(timeSlot);
     const nextTimeSlot = TIME_SLOTS[timeIndex + 2] || "23:59"; // 60 dakikalık blok (2 x 30dk)
@@ -724,23 +759,41 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                         const isSlotStart = slot && slot.startTime === timeSlot;
                         const displayTime = resizingSlot?.id === slot?.id ? resizePreviewTime : null;
                         
+                        // Önizleme kontrolü - bu hücre önizleme aralığında mı?
+                        const isInPreview = dropPreview && 
+                          dropPreview.day === day.value && 
+                          dropPreview.time <= timeSlot && 
+                          dropPreview.endTime > timeSlot;
+                        const isPreviewStart = dropPreview?.day === day.value && dropPreview?.time === timeSlot;
+                        
                         return (
                           <div
                             key={`${day.value}-${timeSlot}`}
-                            className={`h-12 ${timeIndex < TIME_SLOTS.length - 1 ? 'border-b' : ''} ${dayIndex < DAYS_OF_WEEK.length - 1 ? 'border-r' : ''} transition-all duration-150 relative ${
+                            className={`h-12 ${timeIndex < TIME_SLOTS.length - 1 ? 'border-b' : ''} ${dayIndex < DAYS_OF_WEEK.length - 1 ? 'border-r' : ''} transition-all duration-200 relative ${
                               slot 
                                 ? "bg-primary/10" 
-                                : "bg-background hover:bg-primary/5 cursor-pointer hover:ring-1 hover:ring-inset hover:ring-primary/20"
+                                : isInPreview
+                                  ? "bg-green-100/50 dark:bg-green-900/30 ring-2 ring-inset ring-green-500/60"
+                                  : "bg-background hover:bg-primary/5 cursor-pointer"
                             } ${
-                              (draggedCourse || draggedSlot) ? "ring-2 ring-inset ring-primary/40 bg-primary/5" : ""
+                              (draggedCourse || draggedSlot) && !isInPreview ? "ring-1 ring-inset ring-primary/30" : ""
                             }`}
-                            onDragOver={handleDragOver}
+                            onDragOver={(e) => handleDragOver(e, day.value, timeSlot)}
+                            onDragLeave={handleDragLeave}
                             onDrop={(e) => handleCellDrop(e, day.value, timeSlot)}
                             data-testid={`calendar-cell-${day.value}-${timeSlot}`}
                           >
+                            {/* Önizleme overlay */}
+                            {isPreviewStart && dropPreview && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-green-500/20 border-2 border-green-500 rounded-md z-[5] pointer-events-none">
+                                <span className="text-xs font-semibold text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900 px-2 py-1 rounded">
+                                  {draggedCourse?.name || "Taşınıyor..."}
+                                </span>
+                              </div>
+                            )}
                             {slot && isSlotStart && (
                               <div
-                                className="absolute inset-0 flex flex-col items-stretch text-xs font-medium bg-gradient-to-b from-primary/25 to-primary/20 border-2 border-primary/50 rounded-sm cursor-move group z-10 hover:shadow-lg hover:from-primary/30 hover:to-primary/25 hover:border-primary/60 transition-all"
+                                className="absolute inset-0 flex flex-col items-stretch text-xs font-medium bg-gradient-to-br from-primary/30 via-primary/20 to-primary/15 border-l-4 border-l-primary border-y border-r border-primary/40 rounded-md cursor-move group z-10 hover:shadow-xl hover:from-primary/35 hover:via-primary/25 hover:to-primary/20 hover:border-primary/60 transition-all overflow-hidden"
                                 draggable
                                 onDragStart={(e) => handleSlotDragStart(e, slot)}
                                 title={`${course?.name || "?"} (${displayTime?.start || slot.startTime}-${displayTime?.end || slot.endTime})`}
@@ -748,27 +801,26 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                               >
                                 {/* Resize handle - top */}
                                 <div
-                                  className="absolute -top-1.5 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center z-20 opacity-40 group-hover:opacity-100 transition-opacity"
+                                  className="absolute -top-2 left-0 right-0 h-4 cursor-ns-resize flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-b from-primary/20 to-transparent"
                                   onPointerDown={(e) => handleResizeStart(e, slot, 'top')}
                                   onPointerMove={handleResizeMove}
                                   onPointerUp={handleResizeEnd}
                                   data-testid={`resize-top-${slot.id}`}
                                 >
-                                  <div className="h-1 bg-primary rounded-full w-16 shadow-sm"></div>
+                                  <div className="h-1.5 bg-primary rounded-full w-20 shadow-md"></div>
                                 </div>
 
-                                <div className="flex-1 flex items-center gap-2 px-3 py-1 justify-between">
+                                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 justify-between min-h-0">
                                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <div className="flex-shrink-0 w-1 h-full bg-primary rounded-full"></div>
-                                    <span className="truncate text-sm font-bold text-primary dark:text-primary-foreground">
+                                    <span className="truncate text-sm font-bold text-primary dark:text-primary-foreground drop-shadow-sm">
                                       {course?.name || "?"}
                                     </span>
                                   </div>
-                                  <div className="flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-6 w-6 p-0 hover:bg-destructive/40 rounded-full"
+                                      className="h-6 w-6 p-0 hover:bg-destructive/60 rounded-full bg-background/80 backdrop-blur-sm"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteSlot(slot.id);
@@ -780,19 +832,19 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                                   </div>
                                 </div>
 
-                                <div className="text-[10px] px-3 pb-1 text-primary/80 font-mono opacity-60 group-hover:opacity-100">
+                                <div className="text-[10px] px-3 pb-1.5 text-primary/90 dark:text-primary-foreground/80 font-mono font-semibold">
                                   {displayTime?.start || slot.startTime} - {displayTime?.end || slot.endTime}
                                 </div>
 
                                 {/* Resize handle - bottom */}
                                 <div
-                                  className="absolute -bottom-1.5 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center z-20 opacity-40 group-hover:opacity-100 transition-opacity"
+                                  className="absolute -bottom-2 left-0 right-0 h-4 cursor-ns-resize flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-primary/20 to-transparent"
                                   onPointerDown={(e) => handleResizeStart(e, slot, 'bottom')}
                                   onPointerMove={handleResizeMove}
                                   onPointerUp={handleResizeEnd}
                                   data-testid={`resize-bottom-${slot.id}`}
                                 >
-                                  <div className="h-1 bg-primary rounded-full w-16 shadow-sm"></div>
+                                  <div className="h-1.5 bg-primary rounded-full w-20 shadow-md"></div>
                                 </div>
                               </div>
                             )}
@@ -810,10 +862,10 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                     <div className="space-y-2">
                       <p className="text-sm font-semibold text-primary">Nasıl Kullanılır?</p>
                       <ul className="text-sm space-y-1 text-muted-foreground">
-                        <li>• <strong>Ders Ekle:</strong> Üstteki dersleri takvime sürükle-bırak yapın (otomatik 60 dk)</li>
-                        <li>• <strong>Taşı:</strong> Ders bloğunu tıklayıp başka bir güne/saate sürükleyin</li>
-                        <li>• <strong>Boyutlandır:</strong> Bloğun üst veya alt kenarındaki çubuğu sürükleyin (30 dk aralıklarla)</li>
-                        <li>• <strong>Düzenle/Sil:</strong> Bloğun üzerine gelince görünecek düğmeleri kullanın</li>
+                        <li>• <strong>Ders Ekle:</strong> Dersi sürüklerken yeşil önizleme göreceksiniz - istediğiniz saate bırakın (otomatik 60 dk)</li>
+                        <li>• <strong>Taşı:</strong> Ders bloğunu tıklayıp başka bir güne/saate sürükleyin - önizleme nereye düşeceğini gösterir</li>
+                        <li>• <strong>Boyutlandır:</strong> Bloğun üzerine gelin, üst veya alt kenardan sürükleyerek boyutlandırın (30 dk adımlarla)</li>
+                        <li>• <strong>Sil:</strong> Bloğun üzerine gelin ve sil düğmesine basın</li>
                       </ul>
                     </div>
                   </div>
