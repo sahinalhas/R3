@@ -5,9 +5,9 @@ import { errorHandler, notFoundHandler } from "../middleware/errors";
 import { setupAuth } from "../auth";
 import { registerLegacyRoutes } from "./legacy.routes";
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup auth first
-  setupAuth(app);
+export async function registerRoutes(app: Express): Promise<void> {
+  // Setup auth first (commented out because it's already done in routes.ts)
+  // setupAuth(app);
 
   // Register legacy routes first (temporarily until all domains are extracted)
   await registerLegacyRoutes(app);
@@ -25,7 +25,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Global error handler (must be last)
   app.use(errorHandler);
-
-  // Create and return HTTP server
-  return createServer(app);
 }

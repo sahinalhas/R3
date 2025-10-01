@@ -1147,7 +1147,7 @@ export function CourseSubjectsManager() {
                 name="duration"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Süre (ders saati)</FormLabel>
+                    <FormLabel>Süre (dakika)</FormLabel>
                     <FormControl>
                       <Input 
                         type="number" 
@@ -1158,7 +1158,7 @@ export function CourseSubjectsManager() {
                       />
                     </FormControl>
                     <FormDescription>
-                      Bu konunun işlenmesi için gereken ders saati sayısı
+                      Bu konunun işlenmesi için gereken dakika sayısı
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -1336,7 +1336,7 @@ export function CourseSubjectsManager() {
                                       {course.subjects.slice(0, 3).map((subject, idx) => (
                                         <div key={idx} className="flex justify-between">
                                           <span>{subject.name}</span>
-                                          <span>{subject.duration} saat</span>
+                                          <span>{subject.duration} dk</span>
                                         </div>
                                       ))}
                                       {course.subjects.length > 3 && (

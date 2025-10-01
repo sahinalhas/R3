@@ -1646,7 +1646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Yeni ders konusu ekle
-  app.post("/api/course-subjects", async (req, res, next) => {
+  app.post("/api/course-subjects", requireAuth, async (req, res, next) => {
     try {
       const validatedData = insertCourseSubjectSchema.parse(req.body);
       

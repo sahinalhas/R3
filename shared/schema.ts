@@ -204,7 +204,7 @@ export const courseSubjects = sqliteTable("course_subjects", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   courseId: integer("course_id").notNull(), // Hangi derse ait olduğu
   name: text("name").notNull(), // Konu adı
-  duration: integer("duration").notNull(), // Konunun süresi (ders saati cinsinden)
+  duration: integer("duration").notNull(), // Konunun süresi (dakika cinsinden)
   createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
 });
 

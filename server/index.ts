@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes/index";
+import { registerRoutes as registerLegacyRoutesOld } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -37,8 +38,11 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Register API routes and get HTTP server instance
-  const server = await registerRoutes(app);
+  // Register legacy routes from old routes.ts file (returns HTTP server)
+  const server = await registerLegacyRoutesOld(app);
+  
+  // Register new modular API routes
+  await registerRoutes(app);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
