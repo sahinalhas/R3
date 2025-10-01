@@ -832,22 +832,24 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                                   <div className="h-1 bg-primary/60 rounded-full w-12"></div>
                                 </div>
 
-                                <div className="flex-1 flex items-center justify-between gap-2 px-3 py-2 min-h-0">
-                                  <span className="truncate text-sm font-semibold text-primary dark:text-primary-foreground">
+                                {/* Silme butonu - sağ üst */}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:bg-destructive/50 rounded z-20"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteSlot(slot.id);
+                                  }}
+                                  data-testid={`button-delete-slot-${slot.id}`}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+
+                                <div className="flex-1 flex flex-col justify-center px-3 py-2 min-h-0">
+                                  <span className="text-sm font-semibold text-primary dark:text-primary-foreground line-clamp-2 break-words pr-6">
                                     {course?.name || "?"}
                                   </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:bg-destructive/50 rounded flex-shrink-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteSlot(slot.id);
-                                    }}
-                                    data-testid={`button-delete-slot-${slot.id}`}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
                                 </div>
 
                                 <div className="text-[10px] px-3 pb-2 text-primary/70 dark:text-primary-foreground/70 font-mono">
