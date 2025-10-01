@@ -35,12 +35,12 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 34625
-externalPort = 3000
-
-[[ports]]
 localPort = 35345
 externalPort = 3002
+
+[[ports]]
+localPort = 36909
+externalPort = 3000
 
 [[ports]]
 localPort = 43105
@@ -49,4 +49,4 @@ externalPort = 3001
 [deployment]
 deploymentTarget = "vm"
 build = ["npm", "run", "build"]
-run = ["npm", "start"]
+run = ["npm", "run", "start"]
