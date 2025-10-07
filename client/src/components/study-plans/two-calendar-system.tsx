@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -150,6 +150,26 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
     queryKey: [`/api/students/${studentId}/weekly-total-minutes`],
   });
 
+  // Günlük konu programını çek (Takvim 2 için)
+  const weekEndDate = format(addDays(parseISO(selectedWeekStart), 6), "yyyy-MM-dd");
+  const { data: dailyTopicSchedule = [] } = useQuery<Array<{
+    id: number;
+    studentId: number;
+    slotId: number;
+    date: string;
+    subjectId: number;
+    allocatedMinutes: number;
+    subjectName: string;
+    courseId: number;
+  }>>({
+    queryKey: [`/api/students/${studentId}/daily-topic-schedule`, selectedWeekStart, weekEndDate],
+    queryFn: async () => {
+      const res = await fetch(`/api/students/${studentId}/daily-topic-schedule?startDate=${selectedWeekStart}&endDate=${weekEndDate}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   // Tüm course subjects'leri çek (subjectId -> courseId mapping için)
   const { data: allCourseSubjects = [] } = useQuery<CourseSubject[]>({
     queryKey: ['/api/courses', 'subjects'],
@@ -230,6 +250,7 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
         
         if (!autoFillForm.getValues("dryRun")) {
           queryClient.invalidateQueries({ queryKey: [`/api/students/${studentId}/subject-progress`] });
+          queryClient.invalidateQueries({ queryKey: [`/api/students/${studentId}/daily-topic-schedule`] });
           setIsAutoFillDialogOpen(false);
           setPreviewData(null);
         }
@@ -566,6 +587,24 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
     );
   };
 
+  // Performans için slot/tarih lookup map'i oluştur
+  const topicLookupMap = useMemo(() => {
+    const map = new Map<string, typeof dailyTopicSchedule>();
+    dailyTopicSchedule.forEach(schedule => {
+      const key = `${schedule.slotId}-${schedule.date}`;
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(schedule);
+    });
+    return map;
+  }, [dailyTopicSchedule]);
+
+  // Belirli bir slot ve tarih için konu bilgilerini getir
+  const getTopicsForSlot = (slotId: number, date: string) => {
+    return topicLookupMap.get(`${slotId}-${date}`) || [];
+  };
+
   const hasSlotInTimeRange = (dayOfWeek: number, startTime: string, endTime: string, excludeSlotId?: number) => {
     return weeklySlots.some(slot =>
       slot.dayOfWeek === dayOfWeek &&
@@ -776,6 +815,10 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                         const slotEndTime = displayTime?.end || slot?.endTime || '';
                         const slotHeight = slot && isSlotStart ? calculateSlotHeight(slotStartTime, slotEndTime) : 0;
                         
+                        // Bu slot için tarih ve konu bilgilerini hesapla
+                        const currentDate = format(addDays(parseISO(selectedWeekStart), day.value - 1), "yyyy-MM-dd");
+                        const slotTopics = slot ? getTopicsForSlot(slot.id, currentDate) : [];
+                        
                         // Önizleme kontrolü - bu hücre önizleme aralığında mı?
                         const isInPreview = dropPreview && 
                           dropPreview.day === day.value && 
@@ -846,10 +889,25 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
 
-                                <div className="flex-1 flex flex-col justify-center px-3 py-2 min-h-0">
-                                  <span className="text-sm font-semibold text-primary dark:text-primary-foreground line-clamp-2 break-words pr-6">
-                                    {course?.name || "?"}
-                                  </span>
+                                <div className="flex-1 flex flex-col justify-center px-3 py-2 min-h-0 overflow-y-auto">
+                                  {slotTopics.length > 0 ? (
+                                    <>
+                                      <span className="text-[10px] font-medium text-primary/70 dark:text-primary-foreground/70 mb-1">
+                                        {course?.name || "?"}
+                                      </span>
+                                      <div className="flex flex-col gap-0.5">
+                                        {slotTopics.map((topic, idx) => (
+                                          <span key={idx} className="text-xs font-semibold text-primary dark:text-primary-foreground line-clamp-1 break-words pr-6">
+                                            • {topic.subjectName} ({topic.allocatedMinutes}dk)
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <span className="text-sm font-semibold text-primary dark:text-primary-foreground line-clamp-2 break-words pr-6">
+                                      {course?.name || "?"}
+                                    </span>
+                                  )}
                                 </div>
 
                                 <div className="text-[10px] px-3 pb-2 text-primary/70 dark:text-primary-foreground/70 font-mono">

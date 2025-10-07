@@ -12,11 +12,12 @@ import {
   weeklyStudySlots, type WeeklyStudySlot, type InsertWeeklyStudySlot,
   subjectProgress, type SubjectProgress, type InsertSubjectProgress,
   studyPlanSubjects, type StudyPlanSubject, type InsertStudyPlanSubject,
+  dailyTopicSchedule, type DailyTopicSchedule, type InsertDailyTopicSchedule,
   schoolInfo, type SchoolInfo, type InsertSchoolInfo,
   notifications, type Notification, type InsertNotification
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, like, desc, or } from "drizzle-orm";
+import { eq, and, like, desc, or, gte, lte } from "drizzle-orm";
 import session from "express-session";
 // @ts-ignore - No type definitions available for better-sqlite3-session-store
 import SQLiteStore from "better-sqlite3-session-store";
@@ -168,6 +169,20 @@ export interface IStorage {
     }>;
     errors?: string[];
   }>;
+  
+  // Günlük Konu Programı işlemleri (Takvim 2)
+  getDailyTopicScheduleByDateRange(studentId: number, startDate: string, endDate: string): Promise<Array<{
+    id: number;
+    studentId: number;
+    slotId: number;
+    date: string;
+    subjectId: number;
+    allocatedMinutes: number;
+    subjectName: string;
+    courseId: number;
+  }>>;
+  createDailyTopicSchedule(schedules: InsertDailyTopicSchedule[]): Promise<void>;
+  deleteDailyTopicScheduleByDateRange(studentId: number, startDate: string, endDate: string): Promise<void>;
   
   // Session store
   sessionStore: any;
@@ -1464,13 +1479,18 @@ export class DatabaseStorage implements IStorage {
         };
       }
 
-      // 2. Her ders için konu ilerlemesi var mı kontrol et, yoksa oluştur
+      // 2. Eski konu programını temizle (dry run değilse)
+      if (!isDryRun) {
+        await this.deleteDailyTopicScheduleByDateRange(studentId, startDate, endDate);
+      }
+
+      // 3. Her ders için konu ilerlemesi var mı kontrol et, yoksa oluştur
       const uniqueCourseIds = Array.from(new Set(weeklySlots.map(slot => slot.courseId)));
       for (const courseId of uniqueCourseIds) {
         await this.initializeSubjectProgressForStudent(studentId, courseId);
       }
 
-      // 3. Tarih aralığındaki günleri hesapla
+      // 4. Tarih aralığındaki günleri hesapla
       const start = new Date(startDate);
       const end = new Date(endDate);
       const dates = [];
@@ -1566,6 +1586,27 @@ export class DatabaseStorage implements IStorage {
         };
       }
 
+      // 5. Konu programını veritabanına kaydet (dry run değilse)
+      if (!isDryRun) {
+        const schedulesToInsert: InsertDailyTopicSchedule[] = [];
+        
+        for (const slot of filledSlots) {
+          for (const subject of slot.subjects) {
+            schedulesToInsert.push({
+              studentId,
+              slotId: slot.slotId,
+              date: slot.date,
+              subjectId: subject.subjectId,
+              allocatedMinutes: subject.allocatedMinutes
+            });
+          }
+        }
+        
+        if (schedulesToInsert.length > 0) {
+          await this.createDailyTopicSchedule(schedulesToInsert);
+        }
+      }
+
       return {
         success: true,
         message: `${filledSlots.length} slot için konular ${isDryRun ? 'önizlendi' : 'yerleştirildi'}`,
@@ -1580,6 +1621,73 @@ export class DatabaseStorage implements IStorage {
         message: `Hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`,
         errors: [error instanceof Error ? error.message : 'Bilinmeyen hata']
       };
+    }
+  }
+
+  // Günlük Konu Programı işlemleri (Takvim 2)
+  async getDailyTopicScheduleByDateRange(studentId: number, startDate: string, endDate: string): Promise<Array<{
+    id: number;
+    studentId: number;
+    slotId: number;
+    date: string;
+    subjectId: number;
+    allocatedMinutes: number;
+    subjectName: string;
+    courseId: number;
+  }>> {
+    try {
+      const schedules = await db.select({
+        id: dailyTopicSchedule.id,
+        studentId: dailyTopicSchedule.studentId,
+        slotId: dailyTopicSchedule.slotId,
+        date: dailyTopicSchedule.date,
+        subjectId: dailyTopicSchedule.subjectId,
+        allocatedMinutes: dailyTopicSchedule.allocatedMinutes,
+        subjectName: courseSubjects.name,
+        courseId: courseSubjects.courseId,
+      })
+      .from(dailyTopicSchedule)
+      .innerJoin(courseSubjects, eq(dailyTopicSchedule.subjectId, courseSubjects.id))
+      .where(
+        and(
+          eq(dailyTopicSchedule.studentId, studentId),
+          gte(dailyTopicSchedule.date, startDate),
+          lte(dailyTopicSchedule.date, endDate)
+        )
+      )
+      .orderBy(dailyTopicSchedule.date, dailyTopicSchedule.slotId);
+      
+      return schedules;
+    } catch (error) {
+      console.error(`Günlük konu programı alınırken hata: ${error}`);
+      return [];
+    }
+  }
+
+  async createDailyTopicSchedule(schedules: InsertDailyTopicSchedule[]): Promise<void> {
+    try {
+      if (schedules.length === 0) return;
+      
+      await db.insert(dailyTopicSchedule).values(schedules);
+    } catch (error) {
+      console.error(`Günlük konu programı kaydedilirken hata: ${error}`);
+      throw error;
+    }
+  }
+
+  async deleteDailyTopicScheduleByDateRange(studentId: number, startDate: string, endDate: string): Promise<void> {
+    try {
+      await db.delete(dailyTopicSchedule)
+        .where(
+          and(
+            eq(dailyTopicSchedule.studentId, studentId),
+            gte(dailyTopicSchedule.date, startDate),
+            lte(dailyTopicSchedule.date, endDate)
+          )
+        );
+    } catch (error) {
+      console.error(`Günlük konu programı silinirken hata: ${error}`);
+      throw error;
     }
   }
 }
