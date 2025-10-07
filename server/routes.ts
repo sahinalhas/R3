@@ -2085,6 +2085,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Konu ilerlemesini sıfırla
+  app.patch("/api/subject-progress/:id/reset", requireAuth, async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const progress = await storage.getSubjectProgress(id);
+      if (!progress) {
+        return res.status(404).json({ message: "Konu ilerlemesi bulunamadı" });
+      }
+      
+      const resetProgress = await storage.resetProgress(id);
+      
+      res.json(resetProgress);
+    } catch (err) {
+      next(err);
+    }
+  });
+  
   // Konu ilerlemesi sil
   app.delete("/api/subject-progress/:id", async (req, res, next) => {
     try {
