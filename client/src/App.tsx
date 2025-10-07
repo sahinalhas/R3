@@ -13,9 +13,7 @@ import StudentDetailPage from "@/pages/student-detail";
 import AppointmentsPage from "@/pages/appointments";
 import ReportsPage from "@/pages/reports-new";
 import SettingsPage from "@/pages/settings";
-import ClassHoursPage from "@/pages/class-hours";
 import CounselingSessionsPage from "@/pages/counseling-sessions-final";
-import SchoolInfoPage from "@/pages/school-info";
 
 function Router() {
   return (
@@ -28,8 +26,6 @@ function Router() {
       <ProtectedRoute path="/counseling-sessions-final" component={CounselingSessionsPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
-      <Route path="/class-hours" component={ClassHoursPage} />
-      <Route path="/school-info" component={SchoolInfoPage} />
       
       {/* Public routes */}
       <Route path="/auth" component={AuthPage} />

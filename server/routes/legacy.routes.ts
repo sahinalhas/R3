@@ -18,18 +18,12 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import * as XLSX from "xlsx";
-import path from "path";
 
 // This file contains legacy routes that haven't been modularized yet
 // They will be gradually extracted into domain-specific modules
 
 export async function registerLegacyRoutes(app: Express): Promise<void> {
   
-  // Test sayfası
-  app.get('/test-login', (req, res) => {
-    res.sendFile(path.join(import.meta.dirname, '..', 'test_login.html'));
-  });
-
   // ===== Dashboard ve Stats API Routes =====
   
   // Dashboard istatistikleri
