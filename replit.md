@@ -10,7 +10,18 @@ This is a full-stack school guidance service management application built with R
 - **UI Components**: Radix UI components with custom styling
 - **Authentication**: Session-based with Passport.js
 
-## Recent Changes (October 1, 2025)
+## Recent Changes (October 7, 2025)
+### Kod Temizliği ve Optimizasyon
+- ✅ **25 gereksiz dosya kaldırıldı** - Kod tabanı %30+ küçültüldü
+- ✅ Kullanılmayan reports.tsx sayfası kaldırıldı (reports-new.tsx kullanılıyor)
+- ✅ Redirect-only sayfalar kaldırıldı (class-hours.tsx, school-info.tsx)
+- ✅ Debug ve test dosyaları temizlendi (test_login.html, create-admin.js, db-push.js, setup-db.ts)
+- ✅ 18 kullanılmayan UI component kaldırıldı (accordion, aspect-ratio, breadcrumb, carousel, collapsible, context-menu, drawer, hover-card, input-otp, menubar, navigation-menu, pagination, radio-group, resizable, scroll-area, slider, toggle, toggle-group)
+- ✅ App.tsx routing temizliği yapıldı
+- ✅ Legacy routes'dan test-login endpoint'i kaldırıldı
+- ✅ Gereksiz import'lar temizlendi
+
+## Previous Changes (October 1, 2025)
 - ✅ Fixed course subjects (topics) management system
 - ✅ Updated duration labels from "lesson hours" to "minutes" throughout the application
 - ✅ Updated CourseSubjectsManager component to display "dakika" (minutes) instead of "ders saati" (lesson hours)
