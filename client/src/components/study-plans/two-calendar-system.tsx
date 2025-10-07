@@ -1008,6 +1008,7 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                   {DAYS_OF_WEEK.map((day) => {
                     const daySlots = getSlotsByDay(day.value);
                     const dayDate = addDays(parseISO(selectedWeekStart), day.value - 1);
+                    const dayDateString = format(dayDate, "yyyy-MM-dd");
                     
                     if (daySlots.length === 0) return null;
                     
@@ -1021,6 +1022,9 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                           {daySlots.map((slot) => {
                             const course = getCourseById(slot.courseId);
                             const category = course ? getCourseCategory(course.name) : 'okul';
+                            
+                            // Bu slot için günlük konu programından konuları al
+                            const slotTopics = getTopicsForSlot(slot.id, dayDateString);
                             
                             // Bu derse ait subject'leri bul
                             const courseSubjects = allCourseSubjects.filter(cs => cs.courseId === slot.courseId);
@@ -1051,11 +1055,54 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                                       </div>
                                       <div>
                                         <p className="font-semibold text-base">{course?.name || "Bilinmeyen Ders"}</p>
+                                        
+                                        {/* Konu listesi - Takvim 2'de göster */}
+                                        {slotTopics.length > 0 && (
+                                          <div className="mt-3 space-y-2">
+                                            <p className="text-xs font-medium text-muted-foreground">Çalışılacak Konular:</p>
+                                            {slotTopics.map((topic, idx) => {
+                                              // Bu konunun progress bilgisini bul
+                                              const topicProgress = subjectProgress.find(sp => sp.subjectId === topic.subjectId);
+                                              const topicPercentage = topicProgress && topicProgress.totalTime > 0 
+                                                ? Math.round((topicProgress.completedTime / topicProgress.totalTime) * 100) 
+                                                : 0;
+                                              
+                                              return (
+                                                <div key={idx} className="pl-3 border-l-2 border-primary/30">
+                                                  <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex-1">
+                                                      <p className="text-sm font-medium text-foreground">
+                                                        {topic.subjectName}
+                                                      </p>
+                                                      <p className="text-xs text-muted-foreground">
+                                                        {topic.allocatedMinutes} dakika
+                                                      </p>
+                                                    </div>
+                                                    {topicProgress && (
+                                                      <div className="text-right">
+                                                        <span className="text-xs font-medium text-primary">
+                                                          %{topicPercentage}
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                  {topicProgress && topicProgress.totalTime > 0 && (
+                                                    <Progress 
+                                                      value={topicPercentage} 
+                                                      className="h-1 mt-1"
+                                                    />
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                        
                                         {totalTime > 0 && (
-                                          <div className="mt-2 space-y-1">
+                                          <div className="mt-3 space-y-1">
                                             <div className="flex items-center justify-between text-sm">
                                               <span className="text-muted-foreground">
-                                                İlerleme: {formatMinutes(completedTime)} / {formatMinutes(totalTime)}
+                                                Toplam İlerleme: {formatMinutes(completedTime)} / {formatMinutes(totalTime)}
                                               </span>
                                               <span className="font-medium">
                                                 %{progressPercentage}
@@ -1067,9 +1114,9 @@ export default function TwoCalendarSystem({ studentId, courses, subjectProgress 
                                             />
                                           </div>
                                         )}
-                                        {courseProgressItems.length > 0 && (
+                                        {courseProgressItems.length > 0 && slotTopics.length === 0 && (
                                           <div className="mt-2 text-xs text-muted-foreground">
-                                            {courseProgressItems.length} konu
+                                            {courseProgressItems.length} konu mevcut (plan oluşturmak için "Planı Oluştur" butonunu kullanın)
                                           </div>
                                         )}
                                       </div>
