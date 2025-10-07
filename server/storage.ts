@@ -1464,7 +1464,13 @@ export class DatabaseStorage implements IStorage {
         };
       }
 
-      // 2. Tarih aralığındaki günleri hesapla
+      // 2. Her ders için konu ilerlemesi var mı kontrol et, yoksa oluştur
+      const uniqueCourseIds = Array.from(new Set(weeklySlots.map(slot => slot.courseId)));
+      for (const courseId of uniqueCourseIds) {
+        await this.initializeSubjectProgressForStudent(studentId, courseId);
+      }
+
+      // 3. Tarih aralığındaki günleri hesapla
       const start = new Date(startDate);
       const end = new Date(endDate);
       const dates = [];
@@ -1473,7 +1479,7 @@ export class DatabaseStorage implements IStorage {
         dates.push(new Date(d));
       }
 
-      // 3. Her gün için slot eşleştir ve konu yerleştir
+      // 4. Her gün için slot eşleştir ve konu yerleştir
       for (const date of dates) {
         const dayOfWeek = date.getDay() === 0 ? 7 : date.getDay(); // Pazar=7, Pazartesi=1
         const daySlots = weeklySlots.filter(slot => slot.dayOfWeek === dayOfWeek);
