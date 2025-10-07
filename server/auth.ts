@@ -1,11 +1,17 @@
+/**
+ * Auth Setup & Middleware
+ * Kimlik doğrulama yapılandırması ve middleware'ler
+ */
+
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
+import { authService } from "./services/auth.service";
 import { storage } from "./storage";
 import { User } from "@shared/schema";
+import { SESSION, API_ROUTES, USER_ROLES, CONFIDENTIALITY_LEVELS, HTTP_STATUS, ERROR_MESSAGES } from "./config/constants";
+import { env } from "./config/env";
 
 declare global {
   namespace Express {
@@ -18,33 +24,18 @@ declare global {
   }
 }
 
-const scryptAsync = promisify(scrypt);
-
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
-}
-
-async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
-}
-
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "rehberlik-servisi-gizli-anahtar",
-    resave: false,
-    saveUninitialized: false,
+    secret: env.sessionSecret,
+    resave: SESSION.RESAVE,
+    saveUninitialized: SESSION.SAVE_UNINITIALIZED,
     store: storage.sessionStore,
     cookie: {
-      maxAge: 1000 * 60 * 60 * 24 // 1 gün
+      maxAge: SESSION.MAX_AGE
     }
   };
 
-  app.set("trust proxy", 1);
+  app.set("trust proxy", SESSION.TRUST_PROXY);
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -52,14 +43,10 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
-        } else {
-          return done(null, user);
-        }
+        const user = await authService.login(username, password);
+        return done(null, { ...user, password: '' } as User);
       } catch (err) {
-        return done(err);
+        return done(null, false);
       }
     }),
   );
@@ -74,199 +61,135 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post(["/api/register", "/api/auth/register"], async (req, res, next) => {
+  // Register
+  app.post(API_ROUTES.AUTH.REGISTER, async (req, res, next) => {
     try {
-      const existingUser = await storage.getUserByUsername(req.body.username);
-      if (existingUser) {
-        return res.status(400).json({ message: "Bu kullanıcı adı zaten alınmış" });
-      }
-
-      const user = await storage.createUser({
-        ...req.body,
-        password: await hashPassword(req.body.password),
-      });
-
-      req.login(user, (err) => {
+      const user = await authService.register(req.body);
+      req.login({ ...user, password: '' } as User, (err) => {
         if (err) return next(err);
-        
-        // Kullanıcı şifresini client'a göndermeyelim
-        const { password, ...userWithoutPassword } = user;
-        res.status(201).json(userWithoutPassword);
+        res.status(HTTP_STATUS.CREATED).json(user);
       });
-    } catch (err) {
+    } catch (err: any) {
+      if (err.statusCode === HTTP_STATUS.BAD_REQUEST) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: err.message });
+      }
       next(err);
     }
   });
 
-  app.post(["/api/login", "/api/auth/login"], (req, res, next) => {
+  // Login
+  app.post(API_ROUTES.AUTH.LOGIN, (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
-      if (!user) return res.status(401).json({ message: "Kullanıcı adı veya şifre hatalı" });
+      if (!user) return res.status(HTTP_STATUS.UNAUTHORIZED).json({ 
+        message: ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS 
+      });
       
       req.login(user, (err) => {
         if (err) return next(err);
-        
-        // Kullanıcı şifresini client'a göndermeyelim
         const { password, ...userWithoutPassword } = user;
-        res.status(200).json(userWithoutPassword);
+        res.status(HTTP_STATUS.OK).json(userWithoutPassword);
       });
     })(req, res, next);
   });
 
-  app.post(["/api/logout", "/api/auth/logout"], (req, res, next) => {
+  // Logout
+  app.post(API_ROUTES.AUTH.LOGOUT, (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
-      res.sendStatus(200);
+      res.sendStatus(HTTP_STATUS.OK);
     });
   });
 
-  app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    // Kullanıcı şifresini client'a göndermeyelim
+  // Get current user
+  app.get(API_ROUTES.AUTH.USER, (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(HTTP_STATUS.UNAUTHORIZED);
     const { password, ...userWithoutPassword } = req.user as User;
     res.json(userWithoutPassword);
   });
   
-  // Kullanıcı bilgilerini güncelleme
-  app.put("/api/user", async (req, res, next) => {
+  // Update user
+  app.put(API_ROUTES.AUTH.USER, async (req, res, next) => {
     try {
-      if (!req.isAuthenticated()) return res.sendStatus(401);
+      if (!req.isAuthenticated()) return res.sendStatus(HTTP_STATUS.UNAUTHORIZED);
       
       const currentUser = req.user as User;
-      const userId = currentUser.id;
-      const { username, fullName, role } = req.body;
+      const updatedUser = await authService.updateUser(
+        currentUser.id,
+        currentUser.role,
+        req.body
+      );
       
-      // Username benzersizlik kontrolü
-      if (username && username !== currentUser.username) {
-        const existingUser = await storage.getUserByUsername(username);
-        if (existingUser) {
-          return res.status(400).json({ message: "Bu kullanıcı adı zaten alınmış" });
-        }
-      }
-      
-      // Role değişikliği sadece admin ve okul yönetimi yapabilir
-      let updateData: any = { username, fullName };
-      if (role && role !== currentUser.role) {
-        if (currentUser.role !== "admin" && currentUser.role !== "okul_yönetimi") {
-          return res.status(403).json({ message: "Role değiştirme yetkisi sadece yöneticilere aittir" });
-        }
-        updateData.role = role;
-      }
-      
-      const updatedUser = await storage.updateUser(userId, updateData);
-      
-      if (!updatedUser) {
-        return res.status(404).json({ message: "Kullanıcı bulunamadı" });
-      }
-      
-      // Passport.js session bilgisini güncelle
-      req.login(updatedUser, (err) => {
+      req.login({ ...updatedUser, password: '' } as User, (err) => {
         if (err) return next(err);
-        
-        // Kullanıcı şifresini client'a göndermeyelim
-        const { password, ...userWithoutPassword } = updatedUser;
-        res.json(userWithoutPassword);
+        res.json(updatedUser);
       });
-    } catch (err) {
+    } catch (err: any) {
+      if (err.statusCode === HTTP_STATUS.BAD_REQUEST || err.statusCode === HTTP_STATUS.FORBIDDEN) {
+        return res.status(err.statusCode).json({ message: err.message });
+      }
       next(err);
     }
   });
   
-  // Şifre değiştirme
-  app.post("/api/user/change-password", async (req, res, next) => {
+  // Change password
+  app.post(API_ROUTES.AUTH.CHANGE_PASSWORD, async (req, res, next) => {
     try {
-      if (!req.isAuthenticated()) return res.sendStatus(401);
+      if (!req.isAuthenticated()) return res.sendStatus(HTTP_STATUS.UNAUTHORIZED);
 
       const userId = (req.user as User).id;
       const { currentPassword, newPassword } = req.body;
 
-      // Mevcut şifreyi kontrol et
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+      const result = await authService.changePassword(userId, currentPassword, newPassword);
+      res.json(result);
+    } catch (err: any) {
+      if (err.statusCode === HTTP_STATUS.UNAUTHORIZED) {
+        return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: err.message });
       }
-
-      // Mevcut şifre doğru mu kontrol et
-      const isPasswordValid = await comparePasswords(currentPassword, user.password);
-      if (!isPasswordValid) {
-        return res.status(400).json({ message: "Mevcut şifre hatalı" });
-      }
-
-      // Yeni şifre en az 6 karakter olmalı
-      if (newPassword.length < 6) {
-        return res.status(400).json({ message: "Yeni şifre en az 6 karakter olmalıdır" });
-      }
-
-      // Şifreyi güncelle
-      const hashedPassword = await hashPassword(newPassword);
-      const updatedUser = await storage.updateUser(userId, { password: hashedPassword });
-
-      if (!updatedUser) {
-        return res.status(404).json({ message: "Kullanıcı bilgileri güncellenirken hata oluştu" });
-      }
-
-      // Kullanıcıyı yeniden giriş yaptır
-      req.login(updatedUser, (err) => {
-        if (err) return next(err);
-
-        res.json({ success: true, message: "Şifreniz başarıyla değiştirildi" });
-      });
-    } catch (err) {
       next(err);
     }
   });
 
-  // Geliştirici hızlı giriş (sadece geliştirme ortamında)
-  app.post("/api/dev-login", async (req, res, next) => {
+  // Dev login
+  app.post(API_ROUTES.AUTH.DEV_LOGIN, async (req, res, next) => {
     try {
-      const isDev = req.app.get("env") === "development" || process.env.ALLOW_DEV_LOGIN === "true";
-      if (!isDev) {
-        return res.status(403).json({ message: "Dev login sadece geliştirme ortamında kullanılabilir" });
-      }
-
-      const defaultUsername = "dev";
-      let user = await storage.getUserByUsername(defaultUsername);
-      if (!user) {
-        const hashed = await hashPassword("dev");
-        user = await storage.createUser({
-          username: defaultUsername,
-          password: hashed,
-          fullName: "Geliştirici Kullanıcı",
-          role: "admin",
-        });
-      }
-
-      req.login(user, (err) => {
+      const user = await authService.devLogin(req.app.get("env"));
+      req.login({ ...user, password: '' } as User, (err) => {
         if (err) return next(err);
-        const { password, ...userWithoutPassword } = user!;
-        res.status(200).json(userWithoutPassword);
+        res.status(HTTP_STATUS.OK).json(user);
       });
-    } catch (err) {
+    } catch (err: any) {
+      if (err.statusCode === HTTP_STATUS.FORBIDDEN) {
+        return res.status(HTTP_STATUS.FORBIDDEN).json({ message: err.message });
+      }
       next(err);
     }
   });
 }
 
-// Auth middleware function
+// Auth middleware
 export function requireAuth(req: any, res: any, next: any) {
   if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Bu işlem için giriş yapmalısınız" });
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ 
+      message: ERROR_MESSAGES.AUTH.REQUIRED 
+    });
   }
   next();
 }
 
-// Role-based authorization middleware
+// Role-based authorization
 export function requireRole(allowedRoles: string[]) {
   return (req: any, res: any, next: any) => {
     if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Bu işlem için giriş yapmalısınız" });
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ 
+        message: ERROR_MESSAGES.AUTH.REQUIRED 
+      });
     }
 
     const userRole = (req.user as User).role;
     if (!allowedRoles.includes(userRole)) {
-      return res.status(403).json({ 
-        message: "Bu işlem için yeterli yetkiniz bulunmamaktadır",
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ 
+        message: ERROR_MESSAGES.AUTH.INSUFFICIENT_PERMISSIONS,
         required: allowedRoles,
         current: userRole
       });
@@ -279,55 +202,58 @@ export function requireRole(allowedRoles: string[]) {
 // Admin-only authorization
 export function requireAdmin(req: any, res: any, next: any) {
   if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Bu işlem için giriş yapmalısınız" });
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ 
+      message: ERROR_MESSAGES.AUTH.REQUIRED 
+    });
   }
 
   const userRole = (req.user as User).role;
-  if (userRole !== "admin" && userRole !== "okul_yönetimi") {
-    return res.status(403).json({ 
-      message: "Bu işlem sadece yöneticiler tarafından yapılabilir" 
+  if (userRole !== USER_ROLES.ADMIN && userRole !== USER_ROLES.SCHOOL_ADMIN) {
+    return res.status(HTTP_STATUS.FORBIDDEN).json({ 
+      message: ERROR_MESSAGES.AUTH.ADMIN_ONLY 
     });
   }
 
   next();
 }
 
-// Counseling session confidentiality check
-export function canAccessCounselingSession(userRole: string, confidentialityLevel: string, visibilityRole: string): boolean {
-  // Admin ve okul yönetimi her şeye erişebilir
-  if (userRole === "admin" || userRole === "okul_yönetimi") {
+// Counseling session access control
+export function canAccessCounselingSession(
+  userRole: string, 
+  confidentialityLevel: string, 
+  visibilityRole: string
+): boolean {
+  if (userRole === USER_ROLES.ADMIN || userRole === USER_ROLES.SCHOOL_ADMIN) {
     return true;
   }
 
-  // PDR yönetimi çok gizli hariç her şeye erişebilir
-  if (userRole === "pdr_yönetim") {
-    return confidentialityLevel !== "çok_gizli";
+  if (userRole === USER_ROLES.PDR_ADMIN) {
+    return confidentialityLevel !== CONFIDENTIALITY_LEVELS.TOP_SECRET;
   }
 
-  // Normal PDR uzmanı - visibility role ve confidentiality level'e göre kontrol
-  if (userRole === "rehber" || userRole === "pdr") {
-    // Çok gizli kayıtlara erişim yok
-    if (confidentialityLevel === "çok_gizli") {
+  if (userRole === USER_ROLES.COUNSELOR || userRole === USER_ROLES.PDR) {
+    if (confidentialityLevel === CONFIDENTIALITY_LEVELS.TOP_SECRET) {
       return false;
     }
     
     switch (visibilityRole) {
-      case "pdr":
-        return true; // Normal, yüksek ve düşük seviyeye erişebilir (çok_gizli hariç)
-      case "pdr_yönetim":
-        return confidentialityLevel === "düşük" || confidentialityLevel === "normal";
-      case "okul_yönetimi":
-        return confidentialityLevel === "düşük";
-      case "sınıf_öğretmeni":
-        return confidentialityLevel === "düşük";
+      case USER_ROLES.PDR:
+        return true;
+      case USER_ROLES.PDR_ADMIN:
+        return confidentialityLevel === CONFIDENTIALITY_LEVELS.LOW || 
+               confidentialityLevel === CONFIDENTIALITY_LEVELS.NORMAL;
+      case USER_ROLES.SCHOOL_ADMIN:
+        return confidentialityLevel === CONFIDENTIALITY_LEVELS.LOW;
+      case USER_ROLES.TEACHER:
+        return confidentialityLevel === CONFIDENTIALITY_LEVELS.LOW;
       default:
         return false;
     }
   }
 
-  // Sınıf öğretmeni sadece düşük gizlilik seviyesindeki ve kendisine görünür kayıtlara erişebilir
-  if (userRole === "sınıf_öğretmeni") {
-    return confidentialityLevel === "düşük" && visibilityRole === "sınıf_öğretmeni";
+  if (userRole === USER_ROLES.TEACHER) {
+    return confidentialityLevel === CONFIDENTIALITY_LEVELS.LOW && 
+           visibilityRole === USER_ROLES.TEACHER;
   }
 
   return false;

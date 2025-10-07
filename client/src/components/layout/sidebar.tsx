@@ -127,18 +127,19 @@ export default function AppSidebar() {
                   const active = location === item.href;
                   return (
                     <SidebarMenuItem key={item.href}>
-                      <Link href={item.href} onClick={() => setOpenMobile(false)}>
-                        <SidebarMenuButton asChild isActive={active} tooltip={item.description}>
-                          <a className={cn("flex items-center", active && "font-medium")}
-                            aria-current={active ? "page" : undefined}
-                          >
-                            <Icon className={cn("h-4 w-4",
-                              active ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/60"
-                            )} />
-                            <span className="ml-2">{item.label}</span>
-                          </a>
-                        </SidebarMenuButton>
-                      </Link>
+                      <SidebarMenuButton asChild isActive={active} tooltip={item.description}>
+                        <Link 
+                          href={item.href} 
+                          onClick={() => setOpenMobile(false)}
+                          className={cn("flex items-center", active && "font-medium")}
+                          aria-current={active ? "page" : undefined}
+                        >
+                          <Icon className={cn("h-4 w-4",
+                            active ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/60"
+                          )} />
+                          <span className="ml-2">{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
                 })}

@@ -23,12 +23,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem"
-const SIDEBAR_WIDTH_MOBILE = "18rem"
-const SIDEBAR_WIDTH_ICON = "3rem"
-const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+import { SIDEBAR } from "@/config/constants"
+
+const SIDEBAR_COOKIE_NAME = SIDEBAR.COOKIE_NAME
+const SIDEBAR_COOKIE_MAX_AGE = SIDEBAR.COOKIE_MAX_AGE
+const SIDEBAR_WIDTH = SIDEBAR.WIDTH
+const SIDEBAR_WIDTH_MOBILE = SIDEBAR.WIDTH_MOBILE
+const SIDEBAR_WIDTH_ICON = SIDEBAR.WIDTH_ICON
+const SIDEBAR_KEYBOARD_SHORTCUT = SIDEBAR.KEYBOARD_SHORTCUT
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"

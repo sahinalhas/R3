@@ -1,83 +1,248 @@
-# Rehberlik Servisi (School Guidance Service) Application
+# BRYS - Bütünleşik Rehberlik Yönetim Sistemi
 
-## Overview
-This is a full-stack school guidance service management application built with React, TypeScript, Express, and SQLite. It helps school counselors manage student appointments, counseling sessions, and academic planning.
+## Genel Bakış
+BRYS (Bütünleşik Rehberlik Yönetim Sistemi), okul rehberlik hizmetleri için geliştirilmiş kapsamlı bir yönetim uygulamasıdır.
 
-## Project Architecture
-- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
-- **Backend**: Express.js + TypeScript
-- **Database**: SQLite with Drizzle ORM
-- **UI Components**: Radix UI components with custom styling
-- **Authentication**: Session-based with Passport.js
+## Son Değişiklikler (07 Ekim 2025)
 
-## Recent Changes (October 7, 2025)
-### Kod Temizliği ve Optimizasyon
-- ✅ **25 gereksiz dosya kaldırıldı** - Kod tabanı %30+ küçültüldü
-- ✅ Kullanılmayan reports.tsx sayfası kaldırıldı (reports-new.tsx kullanılıyor)
-- ✅ Redirect-only sayfalar kaldırıldı (class-hours.tsx, school-info.tsx)
-- ✅ Debug ve test dosyaları temizlendi (test_login.html, create-admin.js, db-push.js, setup-db.ts)
-- ✅ 18 kullanılmayan UI component kaldırıldı (accordion, aspect-ratio, breadcrumb, carousel, collapsible, context-menu, drawer, hover-card, input-otp, menubar, navigation-menu, pagination, radio-group, resizable, scroll-area, slider, toggle, toggle-group)
-- ✅ App.tsx routing temizliği yapıldı
-- ✅ Legacy routes'dan test-login endpoint'i kaldırıldı
-- ✅ Gereksiz import'lar temizlendi
+### Modülerleştirme ve Yapısal İyileştirmeler
 
-## Previous Changes (October 1, 2025)
-- ✅ Fixed course subjects (topics) management system
-- ✅ Updated duration labels from "lesson hours" to "minutes" throughout the application
-- ✅ Updated CourseSubjectsManager component to display "dakika" (minutes) instead of "ders saati" (lesson hours)
-- ✅ Fixed critical routing issue: legacy routes in server/routes.ts weren't being registered
-- ✅ Implemented dual route registration system to support both legacy and modular routes
-- ✅ Added authentication middleware to course-subjects POST endpoint
-- ✅ Verified course subject creation works end-to-end with API testing
+#### Backend Modülerleştirme
 
-## Previous Changes (September 30, 2025)
-- ✅ Successfully imported project from GitHub to Replit
-- ✅ Fixed missing nanoid dependency in package.json
-- ✅ Configured development workflow with proper webview output on port 5000
-- ✅ Verified frontend renders correctly with Vite HMR working
-- ✅ Confirmed backend API is responding properly
-- ✅ Set up VM deployment configuration for production
-- ✅ Validated SQLite database is accessible and properly configured
-- ✅ Ensured server allows all hosts for Replit proxy compatibility
+1. **Config Klasörü Oluşturuldu** (`server/config/`)
+   - `constants.ts`: Tüm uygulama sabitleri merkezi hale getirildi
+   - `env.ts`: Ortam değişkenleri yönetimi
+   - `database.ts`: Veritabanı yapılandırması ve bağlantısı
 
-## Key Features
-- Student management and records
-- Appointment scheduling and tracking
-- Counseling session documentation
-- Class hour management
-- Study planning and progress tracking
-- School information management
-- User authentication and authorization
+2. **Services Katmanı Geliştirildi** (`server/services/`)
+   - `auth.service.ts`: Kimlik doğrulama iş mantığı
+   - `students.service.ts`: Öğrenci yönetimi iş mantığı
+   - `appointments.service.ts`: Randevu yönetimi iş mantığı
+   - `index.ts`: Tüm servisleri dışa aktaran indeks dosyası
 
-## Database Schema
-The application uses SQLite with the following main tables:
-- `users` - System users (counselors, admin)
-- `students` - Student records
-- `appointments` - Scheduled appointments
-- `counseling_sessions` - Detailed counseling records
-- `class_hours` - School schedule management
-- `courses` and `course_subjects` - Academic planning
-- `study_plans` and `subject_progress` - Study tracking
+3. **Modüler Route Yapısı** (`server/routes/`)
+   - `appointments.routes.ts`: Randevu endpoint'leri
+   - `activities.routes.ts`: Aktivite ve istatistik endpoint'leri
+   - `school-info.routes.ts`: Okul bilgileri endpoint'leri
+   - `students.routes.ts`: Öğrenci endpoint'leri (mevcut)
+   - `index.ts`: Tüm route'ları kayıt eden merkezi dosya
 
-## Development Setup
-- **Development server**: `npm run dev` (runs on port 5000)
-- **Build**: `npm run build`
-- **Production**: `npm start`
-- **Database**: SQLite file at `data/rehberlik.db`
+4. **Auth Modülü Güncellendi** (`server/auth.ts`)
+   - Config dosyalarından sabitler kullanılıyor
+   - Auth service ile entegre edildi
+   - Middleware'ler iyileştirildi
 
-## Authentication
-- Default admin credentials: username `admin`, password `admin123`
-- Session-based authentication with secure password hashing
+#### Frontend Modülerleştirme
 
-## Deployment Configuration
-- Target: VM (maintains server state)
-- Build command: `npm run build`
-- Start command: `npm start`
-- Port: 5000 (configured for Replit environment)
+1. **Config Klasörü Oluşturuldu** (`client/src/config/`)
+   - `constants.ts`: Frontend sabitleri (API endpoints, roller, ayarlar vb.)
+   - `index.ts`: Config modüllerini dışa aktaran indeks dosyası
 
-## Technical Notes
-- Server configured with `allowedHosts: true` for Replit proxy compatibility
-- Both frontend and backend served from single Express server
-- Vite dev server integrated with Express in development mode
-- SQLite database with proper table initialization
-- **Architecture Note**: Currently using dual routing system (legacy server/routes.ts and modular routes/index.ts) - consider consolidating in future to avoid duplicate route definitions
+2. **Lib/Utilities Geliştirildi** (`client/src/lib/`)
+   - `api.ts`: API endpoint'leri ve query key'leri
+   - `formatters.ts`: Veri formatlama fonksiyonları (tarih, telefon, TC kimlik vb.)
+   - `validators.ts`: Doğrulama fonksiyonları (TC kimlik, email, telefon, dosya vb.)
+   - `index.ts`: Tüm utility'leri dışa aktaran indeks dosyası
+
+3. **Mevcut Dosyalar Güncellendi**
+   - `use-mobile.tsx`: Config'den breakpoint sabiti kullanıyor
+   - `sidebar.tsx`: Config'den sidebar sabitleri kullanıyor
+
+### Mimari İyileştirmeler
+
+#### Katmanlı Mimari
+- **Controller (Routes)**: İnce route handler'lar, sadece request/response işlemleri
+- **Service**: İş mantığı ve orchestration
+- **Repository**: Veritabanı erişimi (mevcut)
+- **Config**: Merkezi yapılandırma ve sabitler
+
+#### Avantajlar
+- **Bakım Kolaylığı**: Kod düzenli ve modüler
+- **Tekrar Kullanılabilirlik**: Servisler ve utility'ler yeniden kullanılabilir
+- **Test Edilebilirlik**: Katmanlar bağımsız test edilebilir
+- **Okunabilirlik**: Kod daha anlaşılır ve organize
+- **Ölçeklenebilirlik**: Yeni özellikler kolayca eklenebilir
+
+## Proje Yapısı
+
+### Backend (`server/`)
+```
+server/
+├── config/           # Yapılandırma dosyaları
+│   ├── constants.ts  # Uygulama sabitleri
+│   ├── env.ts       # Ortam değişkenleri
+│   └── database.ts  # Veritabanı config
+├── services/        # İş mantığı katmanı
+│   ├── auth.service.ts
+│   ├── students.service.ts
+│   ├── appointments.service.ts
+│   └── index.ts
+├── routes/          # API endpoint'leri
+│   ├── appointments.routes.ts
+│   ├── activities.routes.ts
+│   ├── school-info.routes.ts
+│   ├── students.routes.ts
+│   ├── legacy.routes.ts
+│   └── index.ts
+├── repos/           # Veritabanı erişimi
+├── middleware/      # Middleware'ler
+├── auth.ts         # Auth setup & middleware
+├── db.ts           # DB export
+└── index.ts        # Ana giriş noktası
+```
+
+### Frontend (`client/src/`)
+```
+client/src/
+├── config/          # Frontend yapılandırma
+│   ├── constants.ts # Sabitler ve endpoint'ler
+│   └── index.ts
+├── lib/            # Utility fonksiyonlar
+│   ├── api.ts      # API helpers & query keys
+│   ├── formatters.ts # Veri formatlayanlar
+│   ├── validators.ts # Doğrulama fonksiyonları
+│   ├── utils.ts    # Genel utility'ler
+│   └── index.ts
+├── components/     # React bileşenleri
+├── pages/         # Sayfa bileşenleri
+└── hooks/         # Custom hook'lar
+```
+
+## Teknoloji Stack
+
+### Backend
+- **Framework**: Express.js + TypeScript
+- **Database**: SQLite + Drizzle ORM
+- **Auth**: Passport.js (Local Strategy)
+- **Validation**: Zod
+
+### Frontend
+- **Framework**: React + TypeScript + Vite
+- **UI Library**: Radix UI + Tailwind CSS
+- **State Management**: TanStack Query
+- **Routing**: Wouter
+- **Forms**: React Hook Form + Zod
+
+## Özellikler
+
+### Kullanıcı Yönetimi
+- Rol tabanlı yetkilendirme (Admin, Okul Yönetimi, PDR Yönetimi, Rehber, PDR, Öğretmen)
+- Session tabanlı kimlik doğrulama
+- Şifre değiştirme
+
+### Öğrenci Yönetimi
+- Öğrenci kayıt ve düzenleme
+- Detaylı veli bilgileri
+- Toplu öğrenci import (Excel)
+- Öğrenci arama ve filtreleme
+
+### Randevu Sistemi
+- Randevu oluşturma ve takip
+- Durum yönetimi (Planlandı, Tamamlandı, İptal)
+- Öğrenci bazlı randevu geçmişi
+
+### Psikolojik Danışma
+- Görüşme kayıtları
+- Gizlilik seviyeleri
+- Konu bazlı takip
+- Erişim kontrolü
+
+### Ders Saatleri ve Çalışma Planları
+- Haftalık çalışma programı
+- Konu bazlı ilerleme takibi
+- Otomatik çalışma planı oluşturma
+
+### Raporlama
+- Dashboard istatistikleri
+- Öğrenci dağılım raporları
+- Randevu analizi
+- Yıllık özet raporlar
+
+## API Endpoint'leri
+
+### Auth
+- `POST /api/auth/register` - Kayıt
+- `POST /api/auth/login` - Giriş
+- `POST /api/auth/logout` - Çıkış
+- `GET /api/user` - Kullanıcı bilgisi
+- `POST /api/user/change-password` - Şifre değiştir
+
+### Students
+- `GET /api/students` - Öğrenci listesi
+- `GET /api/students/:id` - Öğrenci detay
+- `POST /api/students` - Öğrenci ekle
+- `PUT /api/students/:id` - Öğrenci güncelle
+- `DELETE /api/students/:id` - Öğrenci sil
+
+### Appointments
+- `GET /api/appointments` - Randevu listesi
+- `GET /api/appointments/:id` - Randevu detay
+- `POST /api/appointments` - Randevu oluştur
+- `PUT /api/appointments/:id` - Randevu güncelle
+- `DELETE /api/appointments/:id` - Randevu sil
+
+### Activities & Stats
+- `GET /api/activities` - Aktivite geçmişi
+- `GET /api/activities/stats` - Dashboard istatistikleri
+
+### School Info
+- `GET /api/school-info` - Okul bilgileri
+- `POST /api/school-info` - Okul bilgisi oluştur/güncelle
+
+## Geliştirme
+
+### Başlatma
+```bash
+npm run dev
+```
+
+### Build
+```bash
+npm run build
+```
+
+### Veritabanı Migrasyonu
+```bash
+npm run db:push
+```
+
+## Kullanıcı Rolleri ve Yetkileri
+
+### Admin
+- Tüm yetkilere sahip
+- Sistem yapılandırması
+- Kullanıcı yönetimi
+
+### Okul Yönetimi
+- Öğrenci ve randevu yönetimi
+- Raporlara erişim
+- Çoğu görüşme kaydına erişim
+
+### PDR Yönetimi
+- Öğrenci ve randevu yönetimi
+- PDR aktiviteleri koordinasyonu
+- Çok gizli hariç görüşmelere erişim
+
+### Rehber/PDR
+- Öğrenci takibi
+- Randevu ve görüşme yönetimi
+- Kendi görüşme kayıtlarına erişim
+
+### Sınıf Öğretmeni
+- Sınıf öğrencileri takibi
+- Düşük gizlilik seviyesindeki bilgilere erişim
+
+## Güvenlik
+
+- Session tabanlı kimlik doğrulama
+- Şifre hashleme (scrypt)
+- Rol tabanlı yetkilendirme
+- Görüşme kayıtları için gizlilik seviyeleri
+- CSRF koruması
+- Validation (Zod)
+
+## Notlar
+
+- Geliştirme ortamında dev login kullanılabilir (`POST /api/dev-login`)
+- Veritabanı dosyası: `data/rehberlik.db`
+- Port: 5000 (değiştirilemez)

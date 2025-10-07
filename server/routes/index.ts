@@ -1,6 +1,9 @@
 import { Express, Router } from "express";
 import { createServer, type Server } from "http";
 import { studentsRouter } from "./students.routes";
+import appointmentsRouter from "./appointments.routes";
+import activitiesRouter from "./activities.routes";
+import schoolInfoRouter from "./school-info.routes";
 import { errorHandler, notFoundHandler } from "../middleware/errors";
 import { setupAuth } from "../auth";
 import { registerLegacyRoutes } from "./legacy.routes";
@@ -16,6 +19,9 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // Mount new modular domain routers
   router.use("/students", studentsRouter);
+  router.use("/appointments", appointmentsRouter);
+  router.use("/activities", activitiesRouter);
+  router.use("/school-info", schoolInfoRouter);
 
   // Mount all new API routes under /api
   app.use("/api", router);
