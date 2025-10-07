@@ -271,6 +271,22 @@ export const insertSubjectProgressSchema = createInsertSchema(subjectProgress).o
   createdAt: true,
 });
 
+// Günlük Konu Programı tablosu (Takvim 2 - Auto-fill sonuçları)
+export const dailyTopicSchedule = sqliteTable("daily_topic_schedule", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(), // Hangi öğrenciye ait olduğu
+  slotId: integer("slot_id").notNull(), // Hangi haftalık slota ait (weeklyStudySlots)
+  date: text("date").notNull(), // Tarih (YYYY-MM-DD formatında)
+  subjectId: integer("subject_id").notNull(), // Hangi konu (courseSubjects)
+  allocatedMinutes: integer("allocated_minutes").notNull(), // Ayrılan süre (dakika)
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+});
+
+export const insertDailyTopicScheduleSchema = createInsertSchema(dailyTopicSchedule).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Konu Çalışma Planı tablosu (çalışma planı ve konu ilerlemesi arasındaki ba��lantı)
 export const studyPlanSubjects = sqliteTable("study_plan_subjects", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -296,6 +312,9 @@ export type InsertSubjectProgress = z.infer<typeof insertSubjectProgressSchema>;
 
 export type StudyPlanSubject = typeof studyPlanSubjects.$inferSelect;
 export type InsertStudyPlanSubject = z.infer<typeof insertStudyPlanSubjectSchema>;
+
+export type DailyTopicSchedule = typeof dailyTopicSchedule.$inferSelect;
+export type InsertDailyTopicSchedule = z.infer<typeof insertDailyTopicScheduleSchema>;
 
 // Okul Bilgileri tablosu
 export const schoolInfo = sqliteTable("school_info", {
